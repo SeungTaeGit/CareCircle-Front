@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Mic, Square, Play, TreePine, Image as ImageIcon, Home, Mail, Volume2, Sprout } from 'lucide-react';
 import Link from 'next/link';
 
-// 백엔드 DTO 구조에 맞춘 타입 정의
 interface SeniorProfile {
   id: number;
   name: string;
@@ -19,10 +18,8 @@ export default function SeniorMainPage() {
   const [showReward, setShowReward] = useState(false);
   const [profile, setProfile] = useState<SeniorProfile | null>(null);
 
-  // 녹음 시간을 계산하기 위한 상태 추가
   const [recordStartTime, setRecordStartTime] = useState<number | null>(null);
 
-  // 내 정보(프로필) 가져오기
   useEffect(() => {
     const fetchProfile = async () => {
       try {
@@ -50,17 +47,13 @@ export default function SeniorMainPage() {
 
   const todayMission = "어릴 적 가장 좋아했던 간식은 무엇이었나요?";
 
-  // 마이크 버튼 클릭 로직 (미션 제출 API 연동)
   const toggleRecording = async () => {
     if (!isRecording) {
-      // 1. 녹음 시작
       setIsRecording(true);
-      setRecordStartTime(Date.now()); // 현재 시간을 밀리초 단위로 기록
+      setRecordStartTime(Date.now());
     } else {
-      // 2. 녹음 종료
       setIsRecording(false);
 
-      // 녹음 진행 시간 계산 (초 단위)
       const playTimeSeconds = recordStartTime
         ? Math.floor((Date.now() - recordStartTime) / 1000)
         : 0;
@@ -68,7 +61,6 @@ export default function SeniorMainPage() {
       try {
         const token = localStorage.getItem('accessToken');
 
-        // 백엔드로 미션 활동 기록 전송 (POST /api/activities)
         const response = await fetch('http://localhost:8080/api/activities', {
           method: 'POST',
           headers: {
@@ -83,7 +75,6 @@ export default function SeniorMainPage() {
         });
 
         if (response.ok) {
-          // 백엔드 저장이 성공하면 리워드 애니메이션 띄우기
           setShowReward(true);
           setTimeout(() => setShowReward(false), 3000);
         } else {
