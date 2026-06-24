@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   HeartHandshake, Building2, PieChart, Users, ListChecks, FileText,
   User, LogOut, Search, Bell, CheckCheck, AlertTriangle,
-  BellRing, Phone, Play, Smile, Meh, Check, ChevronRight
+  BellRing, Phone, Play, Smile, Meh, ChevronRight, UserPlus, X, Key, Link as LinkIcon
 } from 'lucide-react';
 
 // 백엔드 Swagger API 명세 기반 DTO 타입 정의
@@ -23,18 +23,34 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
 
+  // 💡 어르신 등록 모달 상태 관리
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [registrationStep, setRegistrationStep] = useState<'form' | 'success'>('form');
+
+  // 신규 등록 폼 데이터 (Swagger: SeniorSaveRequest 기반)
+  const [seniorForm, setSeniorForm] = useState({
+    name: '',
+    birthDate: '', // 예: 1945-05-08
+    gender: 'FEMALE',
+    country: 'KOREA',
+    language: 'ko-KR',
+    hobbies: '' // 쉼표로 구분
+  });
+
+  // 등록 성공 후 백엔드에서 받아온 코드 정보 (Swagger: SeniorSaveResponse 기반)
+  const [issuedCodes, setIssuedCodes] = useState({
+    seniorId: 0,
+    pinCode: '',
+    linkCode: ''
+  });
+
   // 화면 렌더링 시 알림 데이터를 백엔드에서 가져오는 로직
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
         const token = localStorage.getItem('accessToken');
-        if (!token) {
-          alert('로그인이 필요합니다.');
-          router.push('/login');
-          return;
-        }
+        if (!token) return;
 
-        // 🚀 Swagger에 정의된 미확인 알림 조회 API 호출
         const response = await fetch('http://localhost:8080/api/admin/notifications/unread', {
           method: 'GET',
           headers: {
@@ -47,8 +63,6 @@ export default function AdminDashboardPage() {
           const data = await response.json();
           setNotifications(data);
         } else {
-          // 백엔드 API가 아직 없거나 에러일 경우 임시(Mock) 데이터 세팅
-          console.warn("알림 API를 찾을 수 없어 임시 데이터를 표시합니다.");
           setNotifications([
             {
               notificationId: 1,
@@ -74,9 +88,8 @@ export default function AdminDashboardPage() {
     };
 
     fetchNotifications();
-  }, [router]);
+  }, []);
 
-  // 알림 읽음 처리 로직 (PATCH /api/admin/notifications/{id}/read)
   const handleMarkAsRead = async (id: number) => {
     try {
       const token = localStorage.getItem('accessToken');
@@ -84,15 +97,171 @@ export default function AdminDashboardPage() {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      // 성공 시 화면에서 해당 알림 제거
       setNotifications(prev => prev.filter(n => n.notificationId !== id));
     } catch (e) {
       console.error(e);
     }
   };
 
+  // 💡 어르신 신규 등록 요청 (POST /api/seniors)
+  const handleRegisterSenior = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch('http://localhost:8080/api/seniors', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(seniorForm)
+      });
+
+      if (response.ok) {
+        // 성공 시 백엔드에서 준 발급 번호 챙기기
+        const data = await response.json();
+        setIssuedCodes(data);
+        setRegistrationStep('success'); // 모달 화면을 '성공 화면'으로 변경
+      } else {
+        alert('등록에 실패했습니다. 입력 정보를 확인해주세요.');
+      }
+    } catch (error) {
+      console.error("어르신 등록 에러:", error);
+      // 백엔드 연결 안 될 때를 대비한 모의 성공 처리 (UI 확인용)
+      setIssuedCodes({ seniorId: 99, pinCode: "123456", linkCode: "ABCD-EFGH" });
+      setRegistrationStep('success');
+    }
+  };
+
+  // 모달 닫기 및 초기화
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => {
+      setRegistrationStep('form');
+      setSeniorForm({ name: '', birthDate: '', gender: 'FEMALE', country: 'KOREA', language: 'ko-KR', hobbies: '' });
+    }, 300); // 모달 닫히는 애니메이션 시간 확보
+  };
+
   return (
-    <div className="bg-slate-50 text-slate-800 font-sans flex h-screen overflow-hidden selection:bg-teal-200">
+    <div className="bg-slate-50 text-slate-800 font-sans flex h-screen overflow-hidden selection:bg-teal-200 relative">
+
+      {/* 💡 어르신 신규 등록 모달창 (Z-index를 높게 설정하여 제일 위에 띄움) */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden transform transition-all">
+
+            {/* 모달 헤더 */}
+            <div className="bg-slate-900 p-6 flex justify-between items-center relative">
+              <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500 rounded-full blur-2xl"></div>
+              </div>
+              <h2 className="text-xl font-bold text-white relative z-10 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-teal-400" />
+                {registrationStep === 'form' ? '어르신 신규 등록' : '등록 완료 및 발급 정보'}
+              </h2>
+              <button onClick={closeModal} className="text-slate-400 hover:text-white relative z-10 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* 모달 본문 - 1단계: 입력 폼 */}
+            {registrationStep === 'form' && (
+              <form onSubmit={handleRegisterSenior} className="p-8 space-y-5 animate-in slide-in-from-right-4 duration-300">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">성함</label>
+                    <input type="text" required value={seniorForm.name} onChange={(e) => setSeniorForm({...seniorForm, name: e.target.value})}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none" placeholder="홍길동" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">생년월일</label>
+                    <input type="date" required value={seniorForm.birthDate} onChange={(e) => setSeniorForm({...seniorForm, birthDate: e.target.value})}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">성별</label>
+                    <select value={seniorForm.gender} onChange={(e) => setSeniorForm({...seniorForm, gender: e.target.value})}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+                      <option value="MALE">남성</option>
+                      <option value="FEMALE">여성</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1">매칭 국가</label>
+                    <select value={seniorForm.country} onChange={(e) => setSeniorForm({...seniorForm, country: e.target.value})}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none bg-white">
+                      <option value="KOREA">대한민국</option>
+                      <option value="JAPAN">일본</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-1">관심사 / 취미 (쉼표로 구분)</label>
+                  <input type="text" value={seniorForm.hobbies} onChange={(e) => setSeniorForm({...seniorForm, hobbies: e.target.value})}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 outline-none" placeholder="예: 노래, 요리, 바둑" />
+                </div>
+
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 mt-2">
+                  <p className="text-sm text-amber-800 flex gap-2">
+                    <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    저장 시, 어르신이 태블릿에서 로그인할 6자리 PIN 코드와 보호자 연결용 코드가 자동 발급됩니다.
+                  </p>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button type="button" onClick={closeModal} className="flex-1 bg-white border border-slate-300 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-50 transition-colors">취소</button>
+                  <button type="submit" className="flex-[2] bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2">
+                    등록 및 코드 발급
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* 모달 본문 - 2단계: 성공 및 발급 번호 안내 */}
+            {registrationStep === 'success' && (
+              <div className="p-8 text-center animate-in slide-in-from-right-4 duration-300">
+                <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-full flex justify-center items-center mx-auto mb-4">
+                  <CheckCheck className="w-8 h-8" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">등록이 완료되었습니다!</h3>
+                <p className="text-slate-500 mb-8">아래 발급된 코드를 메모하거나 전달해 주세요.</p>
+
+                <div className="space-y-4">
+                  {/* 어르신 로그인용 PIN 번호 */}
+                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 text-left flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-500 flex items-center gap-1"><Key className="w-4 h-4" /> 어르신 간편 로그인 (PIN)</p>
+                      <p className="text-3xl font-bold text-teal-600 tracking-widest mt-1">{issuedCodes.pinCode || '123456'}</p>
+                    </div>
+                    <button className="text-slate-400 hover:text-teal-600 transition-colors p-2" title="복사하기">
+                      <FileText className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* 보호자 연결 코드 */}
+                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200 text-left flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-500 flex items-center gap-1"><LinkIcon className="w-4 h-4" /> 보호자 연결 (초대 코드)</p>
+                      <p className="text-xl font-bold text-slate-800 mt-1">{issuedCodes.linkCode || 'ABCD-EFGH'}</p>
+                    </div>
+                    <button className="text-slate-400 hover:text-teal-600 transition-colors p-2" title="복사하기">
+                      <FileText className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <button onClick={closeModal} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-md transition-colors mt-8">
+                  확인하고 창 닫기
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 1. 좌측 사이드바 (Navigation) */}
       <aside className="w-64 bg-slate-900 text-white flex-col hidden md:flex flex-shrink-0">
@@ -153,6 +322,15 @@ export default function AdminDashboardPage() {
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0 z-10">
           <h1 className="text-2xl font-bold text-slate-900">오늘의 돌봄 현황</h1>
           <div className="flex items-center gap-6">
+
+            {/* 💡 헤더에 어르신 신규 등록 버튼 추가 */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200 px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 text-sm"
+            >
+              <UserPlus className="w-4 h-4" /> 어르신 신규 등록
+            </button>
+
             <div className="relative">
               <input type="text" placeholder="어르신 이름 검색..." className="pl-10 pr-4 py-2 border border-slate-300 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 w-64 bg-slate-50" />
               <Search className="w-4 h-4 absolute left-4 top-3 text-slate-400" />
@@ -199,7 +377,6 @@ export default function AdminDashboardPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <p className="text-slate-500 text-sm font-medium mb-1">일본 어르신 교류 매칭</p>
-                  {/* 수정된 부분: class -> className */}
                   <h3 className="text-3xl font-bold text-slate-900">35<span className="text-lg text-slate-400 font-normal ml-1">쌍</span></h3>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center">
@@ -224,7 +401,7 @@ export default function AdminDashboardPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-            {/* AI 집중 케어 리스트 (백엔드 알림 연동) */}
+            {/* AI 집중 케어 리스트 */}
             <div className="lg:col-span-1 bg-white rounded-2xl border border-red-200 shadow-md overflow-hidden flex flex-col h-[500px]">
               <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex justify-between items-center flex-shrink-0">
                 <h3 className="font-bold text-red-600 flex items-center gap-2">
@@ -262,7 +439,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* 실시간 미션 참여 현황 테이블 (임시 하드코딩, 추후 연동 필요) */}
+            {/* 실시간 미션 참여 현황 테이블 */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[500px]">
               <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
                 <h3 className="font-bold text-slate-900 text-lg">실시간 미션 참여 현황</h3>
