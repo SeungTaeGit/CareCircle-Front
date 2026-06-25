@@ -13,9 +13,11 @@ export default function LoginPage() {
   const [pinCode, setPinCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSeniorLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const response = await fetch('http://localhost:8080/api/auth/senior/login', {
         method: 'POST',
@@ -25,10 +27,11 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // 백엔드 개발자 Note: JWT 토큰을 로컬 스토리지에 저장합니다.
-        localStorage.setItem('accessToken', data.token);
+        const token = data.token || data.accessToken;
+
+        localStorage.setItem('accessToken', token);
         localStorage.setItem('userRole', 'ROLE_SENIOR');
-        alert('어르신 로그인 성공!');
+
         router.push('/senior');
       } else {
         alert('PIN 번호를 다시 확인해주세요.');
@@ -36,11 +39,14 @@ export default function LoginPage() {
     } catch (error) {
       console.error('로그인 에러:', error);
       alert('서버와 연결할 수 없습니다. 백엔드 서버가 켜져 있는지 확인해주세요.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleStaffLogin = async (e: React.FormEvent, role: 'guardian' | 'admin') => {
     e.preventDefault();
+    setIsLoading(true);
     try {
       const endpoint = role === 'guardian'
         ? 'http://localhost:8080/api/auth/guardian/login'
@@ -54,10 +60,11 @@ export default function LoginPage() {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('accessToken', data.token);
+        const token = data.token || data.accessToken;
+
+        localStorage.setItem('accessToken', token);
         localStorage.setItem('userRole', role === 'guardian' ? 'ROLE_GUARDIAN' : 'ROLE_ADMIN');
 
-        alert(`${role === 'guardian' ? '보호자' : '관리자'} 로그인 성공!`);
         router.push(`/${role}`);
       } else {
         alert('이메일 또는 비밀번호가 일치하지 않습니다.');
@@ -65,6 +72,8 @@ export default function LoginPage() {
     } catch (error) {
       console.error('로그인 에러:', error);
       alert('서버와 연결할 수 없습니다. 백엔드(localhost:8080) 실행 상태와 CORS 설정을 확인해주세요.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -107,7 +116,9 @@ export default function LoginPage() {
           </button>
         </div>
 
+        {/* 폼 영역 (기존 높이 유지) */}
         <div className="p-8 h-[520px] flex flex-col justify-center relative overflow-hidden">
+
           {/* 1. 어르신 로그인 폼 */}
           {activeTab === 'senior' && (
             <form onSubmit={handleSeniorLogin} className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full">
@@ -125,8 +136,8 @@ export default function LoginPage() {
                   maxLength={6}
                 />
               </div>
-              <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-5 rounded-2xl transition-colors shadow-md text-xl flex items-center justify-center gap-2">
-                <Play className="w-6 h-6 fill-white" /> 시작하기
+              <button disabled={isLoading} type="submit" className="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white font-bold py-5 rounded-2xl transition-colors shadow-md text-xl flex items-center justify-center gap-2">
+                <Play className="w-6 h-6 fill-white" /> {isLoading ? '로그인 중...' : '시작하기'}
               </button>
             </form>
           )}
@@ -159,8 +170,8 @@ export default function LoginPage() {
                   required
                 />
               </div>
-              <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors shadow-md mt-2">
-                이메일로 로그인
+              <button disabled={isLoading} type="submit" className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-600 text-white font-bold py-3.5 rounded-xl transition-colors shadow-md mt-2">
+                {isLoading ? '로그인 중...' : '이메일로 로그인'}
               </button>
 
               <div className="relative flex py-4 items-center">
@@ -169,7 +180,7 @@ export default function LoginPage() {
                 <div className="flex-grow border-t border-slate-200"></div>
               </div>
 
-              {/* OAuth2 카카오 로그인 라우팅 (추후 백엔드 연동) */}
+              {/* OAuth2 카카오 로그인 라우팅 */}
               <button
                 type="button"
                 onClick={() => router.push('http://localhost:8080/oauth2/authorization/kakao')}
@@ -213,8 +224,8 @@ export default function LoginPage() {
                   <input type="checkbox" className="rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer" /> 로그인 유지
                 </label>
               </div>
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors shadow-md mt-4">
-                관리자 대시보드 입장
+              <button disabled={isLoading} type="submit" className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-bold py-3.5 rounded-xl transition-colors shadow-md mt-4">
+                {isLoading ? '로그인 중...' : '관리자 대시보드 입장'}
               </button>
             </form>
           )}
