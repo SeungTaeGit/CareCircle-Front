@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Mic, Square, Volume2 } from 'lucide-react';
 
 interface MissionRecorderProps {
@@ -10,40 +10,80 @@ export default function MissionRecorder({ todayMission }: MissionRecorderProps) 
   const [showReward, setShowReward] = useState(false);
   const [recordStartTime, setRecordStartTime] = useState<number | null>(null);
 
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+
   const toggleRecording = async () => {
     if (!isRecording) {
-      setIsRecording(true);
-      setRecordStartTime(Date.now());
-    } else {
-      setIsRecording(false);
-      const playTimeSeconds = recordStartTime ? Math.floor((Date.now() - recordStartTime) / 1000) : 0;
-
       try {
-        const token = localStorage.getItem('accessToken');
-        const response = await fetch('http://localhost:8080/api/activities', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ activityType: "VOICE_MISSION", score: 10, playTimeSeconds })
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        audioChunksRef.current = [];
 
-        if (response.ok) {
-          setShowReward(true);
-          setTimeout(() => setShowReward(false), 3000);
-        } else {
-          alert('미션 전송에 실패했습니다.');
-        }
-      } catch (error) {
-        console.error("활동 기록 저장 에러:", error);
-        alert('서버와 연결할 수 없습니다.');
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+        setRecordStartTime(Date.now());
+      } catch (err) {
+        console.error("마이크 접근 권한 에러:", err);
+        alert("마이크 사용 권한을 허용해주세요!");
+      }
+    }
+    else {
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.onstop = async () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+          const formData = new FormData();
+          formData.append('audioFile', audioBlob, 'mission_audio.webm');
+
+          const playTimeSeconds = recordStartTime ? Math.floor((Date.now() - recordStartTime) / 1000) : 0;
+          const requestData = {
+            activityType: "VOICE_MISSION",
+            score: 10,
+            playTimeSeconds: playTimeSeconds
+          };
+
+          formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
+
+          try {
+            const token = localStorage.getItem('accessToken');
+            const response = await fetch('http://localhost:8080/api/activities', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`
+              },
+              body: formData
+            });
+
+            if (response.ok) {
+              setShowReward(true);
+              setTimeout(() => setShowReward(false), 3000);
+            } else {
+              alert('미션 전송에 실패했습니다. (백엔드 로그를 확인해주세요)');
+            }
+          } catch (error) {
+            console.error("활동 기록 저장 에러:", error);
+            alert('서버와 연결할 수 없습니다.');
+          }
+        };
+
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
       }
     }
   };
 
   return (
     <>
+      {/* 리워드(참 잘했어요) 모달 */}
       {showReward && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white p-8 rounded-3xl text-center transform animate-in zoom-in-50 duration-500">
@@ -54,6 +94,7 @@ export default function MissionRecorder({ todayMission }: MissionRecorderProps) 
         </div>
       )}
 
+      {/* 미션 렌더링 영역 */}
       <div className="bg-teal-50 rounded-3xl p-6 border-2 border-teal-500 shadow-md flex-grow flex flex-col justify-center items-center text-center relative">
         <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-teal-600 text-white px-5 py-1.5 rounded-full font-bold shadow-md">오늘의 미션</span>
 
@@ -64,6 +105,7 @@ export default function MissionRecorder({ todayMission }: MissionRecorderProps) 
           </button>
         </div>
 
+        {/* 거대 마이크 버튼 */}
         <button
           onClick={toggleRecording}
           className={`relative flex flex-col items-center justify-center w-40 h-40 rounded-full text-white transition-all duration-300 transform active:scale-95 ${
