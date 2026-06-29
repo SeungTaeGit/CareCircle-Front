@@ -10,6 +10,13 @@ interface SeniorProfile {
   name: string;
 }
 
+interface PartnerProfile {
+  partnerId: number;
+  partnerName: string;
+  country: string;
+  language: string;
+}
+
 interface ExchangeMessage {
   messageId: number;
   senderName: string;
@@ -20,6 +27,7 @@ interface ExchangeMessage {
 
 export default function SeniorMainPage() {
   const [profile, setProfile] = useState<SeniorProfile | null>(null);
+  const [partnerInfo, setPartnerInfo] = useState<PartnerProfile | null>(null);
   const [unreadMessage, setUnreadMessage] = useState<ExchangeMessage | null>(null);
 
   useEffect(() => {
@@ -28,21 +36,24 @@ export default function SeniorMainPage() {
         const token = localStorage.getItem('accessToken');
         if (!token) return;
 
-        fetch('http://localhost:8080/api/seniors/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).then(res => res.json()).then(data => setProfile(data));
+        const headers = { 'Authorization': `Bearer ${token}` };
 
-        const msgRes = await fetch('http://localhost:8080/api/exchange/received', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        fetch('http://localhost:8080/api/seniors/me', { headers })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => setProfile(data));
 
+        fetch('http://localhost:8080/api/seniors/partner', { headers })
+          .then(res => res.ok ? res.json() : null)
+          .then(data => setPartnerInfo(data));
+
+        const msgRes = await fetch('http://localhost:8080/api/exchange/received', { headers });
         if (msgRes.ok) {
           const messages = await msgRes.json();
           const unread = messages.find((msg: ExchangeMessage) => msg.status === 'UNREAD');
           setUnreadMessage(unread || null);
         }
       } catch (error) {
-        console.error("서버 통신 에러:", error);
+        console.error("데이터 로딩 에러:", error);
       }
     };
 
@@ -58,7 +69,6 @@ export default function SeniorMainPage() {
       });
 
       if (response.ok) {
-        setUnreadMessage(null);
       }
     } catch (error) {
       console.error("읽음 처리 에러:", error);
@@ -74,7 +84,11 @@ export default function SeniorMainPage() {
         <SeniorHeader profile={profile} />
 
         <main className="flex-grow p-6 flex flex-col gap-5">
-          <MessageAlert message={unreadMessage} onRead={handleMarkAsRead} />
+          <MessageAlert
+            message={unreadMessage}
+            partnerInfo={partnerInfo}
+            onRead={handleMarkAsRead}
+          />
 
           <MissionRecorder todayMission={todayMission} />
         </main>
