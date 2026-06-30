@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/admin/Sidebar';
 import SummaryCards from '@/components/admin/SummaryCards';
 import NotificationList from '@/components/admin/NotificationList';
@@ -13,25 +13,68 @@ export default function AdminDashboard() {
     { notificationId: 1, seniorName: '김철수', triggerType: 'NO_PARTICIPATION', message: '오전 미션 미수행', sopGuide: '전화 상담', createdAt: '10:00' }
   ]);
 
-  const [seniors, setSeniors] = useState([
-    { id: 1, name: '이승태', age: 72, hobbies: '음악, 요리', matchStatus: 'WAITING', partnerName: null },
-    { id: 2, name: '김순자', age: 75, hobbies: '사진, 산책', matchStatus: 'MATCHED', partnerName: '사토코 (JP)' },
-    { id: 3, name: '최영호', age: 78, hobbies: '바둑, 원예', matchStatus: 'WAITING', partnerName: null },
-  ]);
+  const [seniors, setSeniors] = useState<any[]>([]);
 
-  const handleMatch = (seniorId: number) => {
-    // 추후 백엔드 API (POST /api/admin/seniors/{seniorId}/match) 호출 자리
-    setSeniors(prev => prev.map(s =>
-      s.id === seniorId ? { ...s, matchStatus: 'MATCHED', partnerName: '새로운 펜팔 (JP)' } : s
-    ));
+  const fetchSeniors = async () => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:8080/api/admin/seniors', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSeniors(data);
+      }
+    } catch (error) {
+      console.error("어르신 목록 조회 실패:", error);
+    }
   };
 
-  const handleUnmatch = (seniorId: number) => {
-    // 추후 백엔드 API (POST /api/admin/unmatch/{seniorId}) 호출 자리
-    if(window.confirm('정말 이 어르신의 매칭을 해제하시겠습니까?')) {
-      setSeniors(prev => prev.map(s =>
-        s.id === seniorId ? { ...s, matchStatus: 'WAITING', partnerName: null } : s
-      ));
+  useEffect(() => {
+    fetchSeniors();
+  }, []);
+
+  const handleMatch = async (seniorId: number) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`http://localhost:8080/api/admin/seniors/${seniorId}/match`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        alert('성공적으로 해외 파트너와 매칭되었습니다!');
+        fetchSeniors();
+      } else {
+        alert('매칭 가능한 대기 중인 해외 파트너가 없습니다.');
+      }
+    } catch (error) {
+      console.error("매칭 요청 실패:", error);
+      alert('서버와 연결할 수 없습니다.');
+    }
+  };
+
+  const handleUnmatch = async (seniorId: number) => {
+    if (window.confirm('정말 이 어르신의 매칭을 해제하시겠습니까?')) {
+      try {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch(`http://localhost:8080/api/admin/seniors/${seniorId}/unmatch`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          alert('매칭이 해제되었습니다.');
+          fetchSeniors();
+        } else {
+          alert('매칭 해제 처리에 실패했습니다.');
+        }
+      } catch (error) {
+        console.error("매칭 해제 실패:", error);
+      }
     }
   };
 
@@ -57,6 +100,7 @@ export default function AdminDashboard() {
           <SummaryCards notificationCount={notifications.length} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
+            {/* 어르신 매칭 관리 테이블 */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
               <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                 <h3 className="font-bold text-slate-800 text-lg">어르신 펜팔 매칭 관리</h3>
@@ -73,40 +117,46 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="text-sm divide-y divide-slate-100">
-                    {seniors.map(senior => (
-                      <tr key={senior.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-4 px-6 font-bold text-slate-900">
-                          {senior.name} <span className="text-slate-400 font-normal text-xs ml-1">({senior.age}세)</span>
-                        </td>
-                        <td className="py-4 px-6">
-                          {senior.matchStatus === 'WAITING' ? (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">대기 중</span>
-                          ) : (
-                            <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">교류 중</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-6 text-slate-600 font-medium">
-                          {senior.partnerName || <span className="text-slate-400 italic">없음</span>}
-                        </td>
-                        <td className="py-4 px-6 text-center">
-                          {senior.matchStatus === 'WAITING' ? (
-                            <button
-                              onClick={() => handleMatch(senior.id)}
-                              className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm flex items-center justify-center gap-1 mx-auto"
-                            >
-                              <LinkIcon className="w-3 h-3" /> 매칭하기
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleUnmatch(senior.id)}
-                              className="bg-white border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 mx-auto"
-                            >
-                              <RefreshCcw className="w-3 h-3" /> 매칭 해제
-                            </button>
-                          )}
-                        </td>
+                    {seniors.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-slate-400">등록된 어르신이 없습니다.</td>
                       </tr>
-                    ))}
+                    ) : (
+                      seniors.map(senior => (
+                        <tr key={senior.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-4 px-6 font-bold text-slate-900">
+                            {senior.name} <span className="text-slate-400 font-normal text-xs ml-1">({senior.age}세)</span>
+                          </td>
+                          <td className="py-4 px-6">
+                            {senior.matchStatus === 'WAITING' ? (
+                              <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold animate-pulse">대기 중</span>
+                            ) : (
+                              <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">교류 중</span>
+                            )}
+                          </td>
+                          <td className="py-4 px-6 text-slate-600 font-medium">
+                            {senior.partnerName || <span className="text-slate-400 italic">없음</span>}
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            {senior.matchStatus === 'WAITING' ? (
+                              <button
+                                onClick={() => handleMatch(senior.id)}
+                                className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shadow-sm flex items-center justify-center gap-1 mx-auto"
+                              >
+                                <LinkIcon className="w-3 h-3" /> 매칭하기
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleUnmatch(senior.id)}
+                                className="bg-white border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 mx-auto"
+                              >
+                                <RefreshCcw className="w-3 h-3" /> 매칭 해제
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
