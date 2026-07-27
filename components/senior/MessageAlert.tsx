@@ -109,7 +109,7 @@ export default function MessageAlert({ message, partnerInfo, onRead }: MessageAl
 
         try {
           const token = localStorage.getItem('accessToken');
-          const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/exchange', {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exchange`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData

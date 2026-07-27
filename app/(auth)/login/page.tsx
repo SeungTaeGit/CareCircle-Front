@@ -19,7 +19,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/auth/senior/login', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/senior/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pinCode })
@@ -49,8 +49,8 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const endpoint = role === 'guardian'
-        ? '${process.env.NEXT_PUBLIC_API_URL}/api/auth/guardian/login'
-        : '${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/login';
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/auth/guardian/login`
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/login`;
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -183,7 +183,7 @@ export default function LoginPage() {
               {/* OAuth2 카카오 로그인 라우팅 */}
               <button
                 type="button"
-                onClick={() => router.push('${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/kakao')}
+                onClick={() => router.push(`${process.env.NEXT_PUBLIC_API_URL}/oauth2/authorization/kakao`)}
                 className="w-full bg-[#FEE500] hover:bg-[#E5CF00] text-[#000000] font-bold py-3.5 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
               >
                 <MessageCircle className="w-5 h-5 fill-black" /> 카카오로 3초 만에 시작

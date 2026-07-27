@@ -32,7 +32,7 @@ export default function SignupPage() {
   const handleGuardianSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/auth/guardian/signup', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/guardian/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(guardianForm)
@@ -53,7 +53,7 @@ export default function SignupPage() {
   const handleAdminSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/signup', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/admin/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(adminForm)

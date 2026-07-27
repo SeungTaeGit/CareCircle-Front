@@ -59,7 +59,7 @@ export default function MissionRecorder({ todayMission }: MissionRecorderProps) 
 
         try {
           const token = localStorage.getItem('accessToken');
-          const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/activities', {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/activities`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`

@@ -38,7 +38,7 @@ export default function AddSeniorModal({ isOpen, onClose }: ModalProps) {
 
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/seniors', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/seniors`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -38,15 +38,15 @@ export default function SeniorMainPage() {
 
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        fetch('${process.env.NEXT_PUBLIC_API_URL}/api/seniors/me', { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/seniors/me`, { headers })
           .then(res => res.ok ? res.json() : null)
           .then(data => setProfile(data));
 
-        fetch('${process.env.NEXT_PUBLIC_API_URL}/api/seniors/partner', { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/seniors/partner`, { headers })
           .then(res => res.ok ? res.json() : null)
           .then(data => setPartnerInfo(data));
 
-        const msgRes = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/exchange/received', { headers });
+        const msgRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exchange/received`, { headers });
         if (msgRes.ok) {
           const messages = await msgRes.json();
           const unread = messages.find((msg: ExchangeMessage) => msg.status === 'UNREAD');
