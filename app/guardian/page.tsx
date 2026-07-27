@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mic } from 'lucide-react';
-import GuardianHeader from '@/components/guardian/GuardianHeader';
-import SeniorStatusCard from '@/components/guardian/SeniorStatusCard';
-import ActivityFeed from '@/components/guardian/ActivityFeed';
+import GuardianHeader from '../../components/guardian/GuardianHeader';
+import SeniorStatusCard from '../../components/guardian/SeniorStatusCard';
+import ActivityFeed from '../../components/guardian/ActivityFeed';
 
 interface Activity {
   id: number;
@@ -29,7 +29,7 @@ export default function GuardianDashboardPage() {
           return;
         }
 
-        const response = await fetch('http://localhost:8080/api/activities/guardian', {
+        const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/activities/guardian', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -60,7 +60,6 @@ export default function GuardianDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 selection:bg-amber-200 text-slate-800 font-sans pb-20">
-
       <GuardianHeader />
 
       <main className="max-w-3xl mx-auto px-4 pt-6">
@@ -75,7 +74,6 @@ export default function GuardianDashboardPage() {
               sentiment={seniorStatus.sentiment}
               gardenLevel={seniorStatus.gardenLevel}
             />
-
             <ActivityFeed activities={activities} />
           </>
         )}
@@ -88,7 +86,6 @@ export default function GuardianDashboardPage() {
           </button>
         </div>
       </div>
-
     </div>
   );
 }

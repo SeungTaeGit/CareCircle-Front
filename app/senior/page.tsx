@@ -38,15 +38,15 @@ export default function SeniorMainPage() {
 
         const headers = { 'Authorization': `Bearer ${token}` };
 
-        fetch('http://localhost:8080/api/seniors/me', { headers })
+        fetch('${process.env.NEXT_PUBLIC_API_URL}/api/seniors/me', { headers })
           .then(res => res.ok ? res.json() : null)
           .then(data => setProfile(data));
 
-        fetch('http://localhost:8080/api/seniors/partner', { headers })
+        fetch('${process.env.NEXT_PUBLIC_API_URL}/api/seniors/partner', { headers })
           .then(res => res.ok ? res.json() : null)
           .then(data => setPartnerInfo(data));
 
-        const msgRes = await fetch('http://localhost:8080/api/exchange/received', { headers });
+        const msgRes = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/exchange/received', { headers });
         if (msgRes.ok) {
           const messages = await msgRes.json();
           const unread = messages.find((msg: ExchangeMessage) => msg.status === 'UNREAD');
@@ -63,12 +63,13 @@ export default function SeniorMainPage() {
   const handleMarkAsRead = async (messageId: number) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:8080/api/exchange/${messageId}/read`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exchange/${messageId}/read`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
+        // 읽음 처리 후 알림 상태 업데이트 로직 (MessageAlert 내부에서 UI가 바뀌므로 당장 null로 만들지 않음)
       }
     } catch (error) {
       console.error("읽음 처리 에러:", error);

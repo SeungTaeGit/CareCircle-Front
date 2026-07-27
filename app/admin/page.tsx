@@ -20,7 +20,7 @@ export default function AdminDashboard() {
       const token = localStorage.getItem('accessToken');
       if (!token) return;
 
-      const response = await fetch('http://localhost:8080/api/admin/seniors', {
+      const response = await fetch('${process.env.NEXT_PUBLIC_API_URL}/api/admin/seniors', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
@@ -40,7 +40,7 @@ export default function AdminDashboard() {
   const handleMatch = async (seniorId: number) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`http://localhost:8080/api/admin/seniors/${seniorId}/match`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/seniors/${seniorId}/match`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -61,7 +61,7 @@ export default function AdminDashboard() {
     if (window.confirm('정말 이 어르신의 매칭을 해제하시겠습니까?')) {
       try {
         const token = localStorage.getItem('accessToken');
-        const response = await fetch(`http://localhost:8080/api/admin/seniors/${seniorId}/unmatch`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/seniors/${seniorId}/unmatch`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` }
         });
