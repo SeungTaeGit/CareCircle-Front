@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { Play, Loader2, Mic, Square, X, Leaf, Hourglass, Type, Image as ImageIcon, Send } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Play, Mic, Image as ImageIcon, Type, Send, Square, Loader2, X } from 'lucide-react';
 
 interface ExchangeMessage {
   messageId: number;
   senderName: string;
-  messageType: 'VOICE' | 'TEXT' | 'IMAGE'; // 💡 타입 확장
+  messageType: 'VOICE' | 'TEXT' | 'IMAGE';
   content?: string;
   audioUrl?: string;
   imageUrl?: string;
   translatedContent?: string;
+  status: string;
 }
 
 interface PartnerProfile {
@@ -24,271 +25,438 @@ interface MessageAlertProps {
   message: ExchangeMessage | null;
   partnerInfo: PartnerProfile | null;
   onRead: (messageId: number) => void;
+  onReplySent: () => void;
 }
 
-export default function MessageAlert({ message, partnerInfo, onRead }: MessageAlertProps) {
+export default function MessageAlert({ message, partnerInfo, onRead, onReplySent }: MessageAlertProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRead, setIsRead] = useState(false);
+  const [replyMode, setReplyMode] = useState<'NONE' | 'VOICE' | 'TEXT' | 'IMAGE'>('NONE');
 
-  // 답장 모드 관리 (VOICE, TEXT, IMAGE)
-  const [replyMode, setReplyMode] = useState<'VOICE' | 'TEXT' | 'IMAGE' | null>(null);
-  const [textContent, setTextContent] = useState('');
-
-  const [isRecording, setIsRecording] = useState(false);
+  // 텍스트/이미지 상태
+  const [textReply, setTextReply] = useState('');
+  const [isDictating, setIsDictating] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
+  // 음성 녹음 관련 State
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<BlobPart[]>([]);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recognitionRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const showFeedback = (msg: string) => {
-    setFeedbackMsg(msg);
-    setTimeout(() => setFeedbackMsg(null), 3000);
-  };
+  useEffect(() => {
+    setIsRead(false);
+    setReplyMode('NONE');
+    setTextReply('');
+    setSelectedImage(null);
+    setImagePreview(null);
+    setAudioBlob(null);
+  }, [message]);
 
-  // 🔊 수신: 기존 음성 재생 처리
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'ko-KR';
+
+      recognition.onresult = (event: any) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          }
+        }
+        if (finalTranscript) {
+          setTextReply((prev) => prev + finalTranscript + ' ');
+        }
+      };
+      recognition.onerror = () => setIsDictating(false);
+      recognition.onend = () => setIsDictating(false);
+      recognitionRef.current = recognition;
+    }
+  }, []);
+
   const handlePlayAudio = () => {
-    if (isPlaying || !message?.audioUrl) return;
+    if (!audioRef.current) return;
     setIsPlaying(true);
-    const audio = new Audio(message.audioUrl);
-    audio.play().catch(() => {
-      showFeedback("음성을 재생할 수 없습니다.");
-      setIsPlaying(false);
-    });
-    audio.onended = () => {
-      setIsPlaying(false);
-      markAsReadAndShowReply();
-    };
+    audioRef.current.play();
   };
 
-  const markAsReadAndShowReply = () => {
-    if (!isRead) {
-      setIsRead(true);
-      if (message) onRead(message.messageId);
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
+    setIsRead(true);
+    if (message) onRead(message.messageId);
+  };
+
+  const handleMarkAsRead = () => {
+    setIsRead(true);
+    if (message) onRead(message.messageId);
+  };
+
+  const toggleDictation = () => {
+    if (isDictating) {
+      recognitionRef.current?.stop();
+      setIsDictating(false);
+    } else {
+      recognitionRef.current?.start();
+      setIsDictating(true);
     }
   };
 
-  // 🎤 발신 1: 음성 녹음 (기존 API)
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const showFeedback = (msg: string) => {
+    alert(msg);
+    setIsProcessing(false);
+  };
+
+  // 📝 A. 텍스트 전송
+  const sendTextReply = async () => {
+    if (!textReply.trim() || !partnerInfo) return showFeedback("내용을 입력해주세요.");
+    setIsProcessing(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/text`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          receiverId: partnerInfo.partnerId || partnerInfo.id || 2,
+          content: textReply.trim(),
+          messageType: 'TEXT'
+        })
+      });
+      if (response.ok) { alert("답장이 전송되었습니다!"); onReplySent(); } else { showFeedback("전송에 실패했습니다."); }
+    } catch (e) { showFeedback("네트워크 오류가 발생했습니다."); } finally { setIsProcessing(false); }
+  };
+
+  // 🖼️ B. 이미지 전송 (💡 imageFile로 키값 변경 및 data 래핑 적용)
+  const sendImageReply = async () => {
+    if (!selectedImage || !partnerInfo) return showFeedback("사진을 선택해주세요.");
+    setIsProcessing(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const formData = new FormData();
+
+      // 1. 이미지 파일 추가 (이름을 'imageFile'로 변경!)
+      formData.append('imageFile', selectedImage);
+
+      // 2. JSON 데이터 추가 ('data' 래핑)
+      const requestData = {
+        receiverId: partnerInfo.partnerId || partnerInfo.id || 2,
+        content: "",
+        messageType: 'IMAGE'
+      };
+
+      formData.append(
+        'data',
+        new Blob([JSON.stringify(requestData)], { type: 'application/json' })
+      );
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/image`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }, // FormData 전송 시 Content-Type은 비워둡니다
+        body: formData
+      });
+      if (response.ok) { alert("사진이 전송되었습니다!"); onReplySent(); } else { showFeedback("사진 전송에 실패했습니다."); }
+    } catch (e) { showFeedback("네트워크 오류가 발생했습니다."); } finally { setIsProcessing(false); }
+  };
+
+  // 🎤 C. 음성 녹음 시작 / 종료
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        setAudioBlob(blob);
+      };
+
       mediaRecorder.start();
-      setIsRecording(true);
+      setIsRecordingAudio(true);
     } catch (err) {
-      showFeedback("마이크 권한을 허용해주세요!");
+      alert("마이크 접근 권한이 필요합니다.");
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.onstop = async () => {
-        if (!partnerInfo) return;
-        setIsProcessing(true);
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const formData = new FormData();
-        formData.append('audioFile', audioBlob, 'reply_audio.webm');
-
-        // 기존 음성 API 유지
-        const requestData = { receiverId: partnerInfo.partnerId, messageType: "VOICE", content: "" };
-        formData.append('data', new Blob([JSON.stringify(requestData)], { type: "application/json" }));
-
-        try {
-          const token = localStorage.getItem('accessToken');
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exchange`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` },
-            body: formData
-          });
-          if (res.ok) handleSuccess();
-          else showFeedback("전송 실패");
-        } catch (e) { showFeedback("서버 오류"); }
-        finally { setIsProcessing(false); setReplyMode(null); }
-      };
+    if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
+      setIsRecordingAudio(false);
     }
   };
 
-  // ✍️ 발신 2: 텍스트 전송 (신규 API)
-  const sendTextReply = async () => {
-    if (!textContent.trim() || !partnerInfo) return;
+  // 🎤 C-2. 음성 전송
+  const sendVoiceReply = async () => {
+    if (!audioBlob || !partnerInfo) return showFeedback("녹음된 음성이 없습니다.");
     setIsProcessing(true);
     try {
       const token = localStorage.getItem('accessToken');
-      // 💡 백엔드 명세 적용: POST /api/exchanges/{exchangeId}/text
-      // (exchangeId 자리에 상대방 ID인 partnerId 사용)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exchanges/${partnerInfo.partnerId}/text`, {
+      const formData = new FormData();
+
+      formData.append('audioFile', audioBlob, 'voice.webm');
+
+      const requestData = {
+        receiverId: partnerInfo.partnerId || partnerInfo.id || 2,
+        content: "",
+        messageType: "VOICE"
+      };
+
+      formData.append(
+        'data',
+        new Blob([JSON.stringify(requestData)], { type: 'application/json' })
+      );
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/voice`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ content: textContent })
-      });
-      if (res.ok) {
-        handleSuccess();
-        setTextContent('');
-      } else showFeedback("전송 실패");
-    } catch (e) { showFeedback("서버 오류"); }
-    finally { setIsProcessing(false); setReplyMode(null); }
-  };
-
-  // 📷 발신 3: 이미지 전송 (신규 API)
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !partnerInfo) return;
-    setIsProcessing(true);
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      const token = localStorage.getItem('accessToken');
-      // 💡 백엔드 명세 적용: POST /api/exchanges/{exchangeId}/image (Multipart)
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exchanges/${partnerInfo.partnerId}/image`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }, // Content-Type은 브라우저가 자동 설정
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-      if (res.ok) handleSuccess();
-      else showFeedback("전송 실패");
-    } catch (err) { showFeedback("서버 오류"); }
-    finally { setIsProcessing(false); setReplyMode(null); }
+
+      if (response.ok) {
+        alert("음성 편지가 전송되었습니다!");
+        onReplySent();
+      } else {
+        showFeedback("음성 전송에 실패했습니다.");
+      }
+    } catch (e) {
+      showFeedback("네트워크 오류가 발생했습니다.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleSuccess = () => {
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 2500);
-  };
 
-  const feedbackUI = feedbackMsg && (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded-full text-sm font-bold z-50 shadow-lg animate-in fade-in slide-in-from-top-2">
-      {feedbackMsg}
+  // =========================================================================
+  // 렌더링 영역 (입력 폼은 컴포넌트로 분리하여 중복 방지)
+  // =========================================================================
+  const renderInputForm = (themeColor: 'teal' | 'amber') => (
+    <div className={`mt-4 bg-white rounded-2xl p-4 border border-${themeColor}-200 shadow-sm animate-in fade-in slide-in-from-top-2`}>
+      <div className="flex justify-between items-center mb-3">
+        <span className={`font-bold text-${themeColor}-800 text-sm`}>
+          {replyMode === 'VOICE' ? '🎤 음성 편지 보내기' : replyMode === 'TEXT' ? '✍️ 글자로 편지 쓰기' : '🖼️ 사진 편지 보내기'}
+        </span>
+        <button onClick={() => setReplyMode('NONE')} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+      </div>
+
+      {/* 텍스트 입력 */}
+      {replyMode === 'TEXT' && (
+        <div className="flex flex-col gap-3">
+          <textarea value={textReply} onChange={(e) => setTextReply(e.target.value)} placeholder="여기를 눌러 직접 쓰시거나, 마이크 버튼을 눌러 말씀하세요."
+            className={`w-full p-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-${themeColor}-500 outline-none resize-none h-32`} />
+          <div className="flex gap-2">
+            <button onClick={toggleDictation} className={`flex-1 py-3 rounded-xl font-bold flex justify-center items-center gap-2 transition-colors ${isDictating ? 'bg-red-100 text-red-600 border border-red-300 animate-pulse' : 'bg-slate-50 border border-slate-300 text-slate-600 hover:bg-slate-100'}`}>
+              {isDictating ? <Square className="w-5 h-5 fill-current"/> : <Mic className="w-5 h-5"/>} {isDictating ? '녹음 중지' : '음성으로 쓰기'}
+            </button>
+            <button onClick={sendTextReply} disabled={isProcessing} className={`flex-1 py-3 bg-${themeColor}-500 hover:bg-${themeColor}-600 text-white font-bold rounded-xl flex justify-center items-center gap-2 shadow-md disabled:bg-slate-400`}>
+              {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} 전송
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 이미지 입력 */}
+      {replyMode === 'IMAGE' && (
+        <div className="flex flex-col gap-3">
+          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageSelect} className="hidden" />
+          {imagePreview ? (
+            <div className="relative w-full h-48 bg-slate-200 rounded-xl overflow-hidden border border-slate-300">
+              <img src={imagePreview} alt="미리보기" className="w-full h-full object-contain" />
+              <button onClick={() => { setSelectedImage(null); setImagePreview(null); }} className="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70"><X className="w-5 h-5"/></button>
+            </div>
+          ) : (
+            <button onClick={() => fileInputRef.current?.click()} className={`w-full h-48 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-500 hover:bg-slate-50 hover:border-${themeColor}-500 transition-colors`}>
+              <ImageIcon className="w-10 h-10 mb-2 text-slate-400" />
+              <span className="font-bold">사진 앨범에서 선택하기</span>
+            </button>
+          )}
+          <button onClick={sendImageReply} disabled={isProcessing || !selectedImage} className={`w-full py-4 bg-${themeColor}-500 hover:bg-${themeColor}-600 disabled:bg-slate-300 text-white font-bold rounded-xl flex justify-center items-center gap-2 shadow-md`}>
+            {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} 사진 보내기
+          </button>
+        </div>
+      )}
+
+      {/* 음성 녹음 입력 */}
+      {replyMode === 'VOICE' && (
+        <div className="flex flex-col items-center gap-4 py-4">
+          {audioBlob ? (
+            <div className="w-full flex flex-col gap-4">
+              <audio src={URL.createObjectURL(audioBlob)} controls className="w-full" />
+              <div className="flex gap-2 w-full">
+                <button onClick={() => setAudioBlob(null)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl border border-slate-300 hover:bg-slate-200">
+                  다시 녹음하기
+                </button>
+                <button onClick={sendVoiceReply} disabled={isProcessing} className={`flex-1 py-3 bg-${themeColor}-500 hover:bg-${themeColor}-600 text-white font-bold rounded-xl flex justify-center items-center gap-2 shadow-md`}>
+                  {isProcessing ? <Loader2 className="w-5 h-5 animate-spin"/> : <Send className="w-5 h-5"/>} 전송
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={isRecordingAudio ? stopRecording : startRecording}
+                className={`w-32 h-32 rounded-full flex flex-col items-center justify-center text-white shadow-xl transition-all ${isRecordingAudio ? 'bg-red-500 animate-pulse' : `bg-${themeColor}-500 hover:bg-${themeColor}-600`}`}
+              >
+                {isRecordingAudio ? <Square className="w-10 h-10 fill-current mb-2" /> : <Mic className="w-10 h-10 mb-2" />}
+                <span className="font-bold">{isRecordingAudio ? '녹음 중지' : '녹음 시작'}</span>
+              </button>
+              <p className="text-slate-500 text-sm font-medium mt-2">
+                {isRecordingAudio ? '말씀이 끝나면 정지 버튼을 눌러주세요.' : '버튼을 눌러 음성 녹음을 시작하세요.'}
+              </p>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 
-  return (
-    <>
-      {isProcessing && (
-        <div className="fixed inset-0 z-[110] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm animate-in fade-in duration-200">
-          <Loader2 className="w-16 h-16 text-teal-600 animate-spin mb-6" />
-          <h3 className="text-xl font-bold text-slate-800 text-center leading-snug">메시지를 전송하는 중입니다...</h3>
-        </div>
-      )}
-
-      {showSuccess ? (
-        <div className="w-full bg-teal-50 rounded-3xl p-5 border-2 border-teal-200 text-center animate-in fade-in relative">
-          {feedbackUI}
-          <span className="text-3xl mb-2 block">🕊️</span>
-          <h2 className="text-lg font-bold text-teal-800">{partnerInfo?.partnerName}님에게 마음을 전했어요!</h2>
-        </div>
-      ) : !partnerInfo ? (
-        <div className="w-full bg-slate-50 rounded-3xl p-6 border-2 border-slate-200 text-center shadow-sm relative">
-          <Hourglass className="w-10 h-10 mx-auto text-slate-400 mb-3 animate-pulse" />
-          <h2 className="text-lg font-bold text-slate-700 mb-1">해외 펜팔을 찾는 중이에요</h2>
-        </div>
-      ) : !message ? (
-        <div className="w-full bg-amber-50 rounded-3xl p-5 border-2 border-amber-200 shadow-sm flex flex-col items-center text-center relative">
-          <h2 className="text-lg font-bold text-slate-800 leading-tight mb-2">
-            먼저 반갑게 인사를 건네볼까요?
-          </h2>
-          {/* 최초 인사도 3가지 모드 제공 가능하지만 여기선 기존대로 음성 버튼 유지 */}
-          <button onClick={isRecording ? stopRecording : startRecording} className={`mt-4 flex flex-col items-center justify-center w-20 h-20 rounded-full text-white transition-all transform active:scale-95 ${isRecording ? 'bg-red-500 shadow-lg animate-pulse' : 'bg-amber-500 shadow-md hover:bg-amber-600'}`}>
-            {isRecording ? <Square className="w-8 h-8 fill-white" /> : <Mic className="w-8 h-8" />}
-            <span className="text-[10px] font-bold mt-1">{isRecording ? "전송" : "인사 녹음"}</span>
-          </button>
-        </div>
-      ) : (
-        <div className="w-full bg-amber-50 rounded-3xl p-5 border-2 border-amber-200 shadow-sm relative">
-          {feedbackUI}
-
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-xl flex-shrink-0 shadow-sm border border-amber-100 mt-1">
-              {partnerInfo.country === 'JP' ? '🇯P' : '🇰R'}
-            </div>
-            <div className="flex-1">
-              <span className="inline-block px-2 py-1 bg-amber-200 text-amber-800 text-xs font-bold rounded-lg mb-1">새로운 답장</span>
-              <h2 className="text-base font-bold text-slate-800 mb-2">{message.senderName}님이 보냈어요!</h2>
-
-              {/* 💡 수신 메시지 타입별 렌더링 분기 */}
-              {message.messageType === 'TEXT' && (
-                <div className="bg-white p-3 rounded-xl border border-amber-100 shadow-sm inline-block" onClick={markAsReadAndShowReply}>
-                  <p className="text-slate-800 font-medium">"{message.translatedContent || message.content}"</p>
-                </div>
-              )}
-
-              {message.messageType === 'IMAGE' && (
-                <div className="rounded-xl overflow-hidden border border-amber-100 shadow-sm mt-1" onClick={markAsReadAndShowReply}>
-                  <img src={message.imageUrl} alt="전송된 사진" className="w-full h-48 object-cover" />
-                </div>
-              )}
-
-              {message.messageType === 'VOICE' && (
-                <div className="flex items-center gap-3 mt-1">
-                  <button onClick={handlePlayAudio} className="w-12 h-12 rounded-full bg-amber-500 text-white flex items-center justify-center hover:scale-105 transition-transform shadow-md">
-                    {isPlaying ? <Loader2 className="w-6 h-6 animate-spin" /> : <Play className="w-6 h-6 fill-white ml-1" />}
-                  </button>
-                  {isPlaying && message.translatedContent && (
-                    <p className="text-sm text-amber-700 font-medium animate-pulse">"{message.translatedContent}"</p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 💡 답장 방식 선택 UI */}
-          {isRead && !replyMode && (
-            <div className="mt-5 pt-4 border-t border-amber-200 animate-in slide-in-from-top-4">
-              <p className="text-slate-600 font-bold mb-3 text-center text-sm">어떻게 답장할까요?</p>
-              <div className="flex justify-center gap-4">
-                <button onClick={() => setReplyMode('VOICE')} className="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-white text-teal-600 shadow-md border-2 border-teal-100 hover:bg-teal-50 active:scale-95">
-                  <Mic className="w-6 h-6" /><span className="text-[10px] font-bold mt-1">목소리</span>
-                </button>
-                <button onClick={() => setReplyMode('TEXT')} className="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-white text-blue-500 shadow-md border-2 border-blue-100 hover:bg-blue-50 active:scale-95">
-                  <Type className="w-6 h-6" /><span className="text-[10px] font-bold mt-1">글쓰기</span>
-                </button>
-                <button onClick={() => fileInputRef.current?.click()} className="flex flex-col items-center justify-center w-16 h-16 rounded-full bg-white text-rose-500 shadow-md border-2 border-rose-100 hover:bg-rose-50 active:scale-95">
-                  <ImageIcon className="w-6 h-6" /><span className="text-[10px] font-bold mt-1">사진</span>
-                </button>
-                <input type="file" accept="image/*" ref={fileInputRef} className="hidden" onChange={handleImageUpload} />
+  // 1. 메시지가 없을 때 (먼저 인사하기)
+  if (!message) {
+    return (
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-2">
+        <h2 className="text-lg font-bold text-slate-800 mb-4">내 펜팔 친구</h2>
+        {partnerInfo ? (
+          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm overflow-hidden border-2 border-white">
+                 <img src={partnerInfo.country === 'JP' ? 'https://flagcdn.com/w80/jp.png' : 'https://flagcdn.com/w80/kr.png'} alt="국기" className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xl text-slate-900">{partnerInfo.partnerName} 어르신</h3>
+                <p className="text-slate-500 font-medium text-sm mt-0.5">{partnerInfo.country === 'JP' ? '일본' : '한국'} • 나와 같은 취미</p>
               </div>
             </div>
-          )}
 
-          {/* 🎤 음성 답장 모드 */}
-          {replyMode === 'VOICE' && (
-            <div className="mt-5 pt-4 border-t border-amber-200 text-center animate-in zoom-in-95">
-              <button onClick={() => setReplyMode(null)} className="absolute top-2 right-2 text-slate-400"><X className="w-5 h-5"/></button>
-              <button onClick={isRecording ? stopRecording : startRecording} className={`mx-auto flex flex-col items-center justify-center w-20 h-20 rounded-full text-white transition-all transform active:scale-95 ${isRecording ? 'bg-red-500 shadow-lg animate-pulse' : 'bg-teal-600 shadow-md hover:bg-teal-700'}`}>
-                {isRecording ? <Square className="w-8 h-8 fill-white" /> : <Mic className="w-8 h-8" />}
-                <span className="text-[10px] font-bold mt-1">{isRecording ? "전송하기" : "녹음 시작"}</span>
-              </button>
-            </div>
-          )}
+            {replyMode === 'NONE' && (
+              <div className="mt-5">
+                <p className="text-center text-slate-600 font-bold mb-3 text-sm">먼저 인사를 건네볼까요?</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <button onClick={() => setReplyMode('VOICE')} className="flex flex-col items-center justify-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:bg-teal-50 transition-colors">
+                    <Mic className="w-6 h-6 text-teal-600" />
+                    <span className="text-xs font-bold text-slate-600">음성 녹음</span>
+                  </button>
+                  <button onClick={() => setReplyMode('TEXT')} className="flex flex-col items-center justify-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:bg-amber-50 transition-colors">
+                    <Type className="w-6 h-6 text-amber-500" />
+                    <span className="text-xs font-bold text-slate-600">글자 쓰기</span>
+                  </button>
+                  <button onClick={() => setReplyMode('IMAGE')} className="flex flex-col items-center justify-center gap-2 p-3 bg-white border border-slate-200 rounded-xl hover:bg-blue-50 transition-colors">
+                    <ImageIcon className="w-6 h-6 text-blue-500" />
+                    <span className="text-xs font-bold text-slate-600">사진 전송</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 font-medium">아직 매칭된 친구가 없습니다.</div>
+        )}
 
-          {/* ✍️ 텍스트 답장 모드 */}
-          {replyMode === 'TEXT' && (
-            <div className="mt-5 pt-4 border-t border-amber-200 animate-in zoom-in-95 relative">
-              <button onClick={() => setReplyMode(null)} className="absolute -top-3 right-0 bg-white rounded-full p-1 border border-slate-200 text-slate-400"><X className="w-4 h-4"/></button>
-              <textarea
-                value={textContent} onChange={(e) => setTextContent(e.target.value)}
-                placeholder="답장 내용을 적어주세요."
-                className="w-full p-3 rounded-xl border border-amber-200 outline-none focus:ring-2 focus:ring-amber-400 resize-none h-24 mb-2 text-sm"
-              />
-              <button onClick={sendTextReply} className="w-full bg-blue-500 text-white font-bold py-2.5 rounded-xl shadow-md flex items-center justify-center gap-2 hover:bg-blue-600">
-                <Send className="w-4 h-4" /> 텍스트 전송
-              </button>
-            </div>
-          )}
+        {replyMode !== 'NONE' && renderInputForm('teal')}
+      </div>
+    );
+  }
+
+  // 2. 메시지가 도착했을 때
+  return (
+    <div className="bg-amber-50 rounded-3xl p-5 border-2 border-amber-200 shadow-sm animate-in slide-in-from-top-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="inline-block px-2 py-1 bg-amber-200 text-amber-800 text-xs font-bold rounded-lg">새로운 편지</span>
+        <span className="text-sm font-bold text-slate-700">{message.senderName} 님이 보냈어요!</span>
+      </div>
+
+      <div className="bg-white rounded-2xl p-4 border border-amber-100 mb-4 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-xl flex-shrink-0">
+             {message.messageType === 'VOICE' ? <Mic /> : message.messageType === 'IMAGE' ? <ImageIcon /> : <Type />}
+          </div>
+
+          <div className="flex-1">
+            {message.messageType === 'VOICE' && (
+              <>
+                <button
+                  onClick={handlePlayAudio}
+                  disabled={isPlaying}
+                  className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${
+                    isPlaying ? 'bg-slate-100 text-slate-400' : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md'
+                  }`}
+                >
+                  {isPlaying ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5 fill-current" />}
+                  {isPlaying ? '재생 중...' : '목소리 듣기'}
+                </button>
+                {message.audioUrl && (
+                  <audio ref={audioRef} src={message.audioUrl} onEnded={handleAudioEnded} className="hidden" />
+                )}
+                {isRead && message.translatedContent && (
+                  <div className="mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <p className="text-sm text-slate-500 font-bold mb-1">AI 번역 요약</p>
+                    <p className="text-slate-800 leading-relaxed">"{message.translatedContent}"</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {message.messageType === 'TEXT' && (
+              <p className="font-medium text-lg leading-relaxed text-slate-800">"{message.translatedContent || message.content}"</p>
+            )}
+
+            {message.messageType === 'IMAGE' && message.imageUrl && (
+              <div className="bg-slate-50 rounded-xl p-2 border border-slate-200 mt-2">
+                <img src={message.imageUrl} alt="받은 사진" className="w-full h-64 md:h-80 rounded-lg object-contain" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {(message.messageType === 'TEXT' || message.messageType === 'IMAGE') && !isRead && (
+        <button onClick={handleMarkAsRead} className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-md flex justify-center items-center gap-2 animate-bounce">
+          <Send className="w-5 h-5" /> 내용 확인 완료 (답장 쓰기)
+        </button>
+      )}
+
+      {isRead && replyMode === 'NONE' && (
+        <div className="mt-4 animate-in fade-in">
+          <p className="text-center text-amber-800 font-bold mb-3 text-sm">어떤 방법으로 답장을 보낼까요?</p>
+          <div className="grid grid-cols-3 gap-3">
+            <button onClick={() => setReplyMode('VOICE')} className="flex flex-col items-center justify-center gap-2 p-3 bg-white border border-amber-200 rounded-xl hover:bg-teal-50 transition-colors shadow-sm">
+              <Mic className="w-6 h-6 text-teal-600" />
+              <span className="text-xs font-bold text-slate-700">음성 녹음</span>
+            </button>
+            <button onClick={() => setReplyMode('TEXT')} className="flex flex-col items-center justify-center gap-2 p-3 bg-white border border-amber-200 rounded-xl hover:bg-amber-50 transition-colors shadow-sm">
+              <Type className="w-6 h-6 text-amber-500" />
+              <span className="text-xs font-bold text-slate-700">글자 쓰기</span>
+            </button>
+            <button onClick={() => setReplyMode('IMAGE')} className="flex flex-col items-center justify-center gap-2 p-3 bg-white border border-amber-200 rounded-xl hover:bg-blue-50 transition-colors shadow-sm">
+              <ImageIcon className="w-6 h-6 text-blue-500" />
+              <span className="text-xs font-bold text-slate-700">사진 전송</span>
+            </button>
+          </div>
         </div>
       )}
-    </>
+
+      {replyMode !== 'NONE' && renderInputForm('amber')}
+    </div>
   );
 }

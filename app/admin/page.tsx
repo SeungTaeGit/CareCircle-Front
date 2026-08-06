@@ -5,6 +5,7 @@ import Sidebar from '@/components/admin/Sidebar';
 import SummaryCards from '@/components/admin/SummaryCards';
 import NotificationList from '@/components/admin/NotificationList';
 import AddSeniorModal from '@/components/admin/AddSeniorModal';
+import MissionManager from '@/components/admin/MissionManager'; // 💡 새로 만든 컴포넌트 임포트
 import { Plus, Link as LinkIcon, RefreshCcw, Bell, X, UserCheck } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -19,6 +20,9 @@ export default function AdminDashboard() {
   const [isRecommendModalOpen, setIsRecommendModalOpen] = useState(false);
   const [selectedSeniorId, setSelectedSeniorId] = useState<number | null>(null);
   const [recommendedPartners, setRecommendedPartners] = useState<any[]>([]);
+
+  // 💡 탭 상태 관리 (어르신 목록 vs 미션 관리) 추가
+  const [activeTab, setActiveTab] = useState<'SENIORS' | 'MISSIONS'>('SENIORS');
 
   useEffect(() => {
     fetchSeniors();
@@ -74,20 +78,18 @@ export default function AdminDashboard() {
   const confirmMatch = async (partnerId: number) => {
     if (!selectedSeniorId) return;
 
-    // 🔥 백엔드로 보내기 직전에 값이 제대로 있는지 무조건 확인!!
     console.log("👉 백엔드로 전송할 파트너 ID: ", partnerId);
 
     if (partnerId === undefined || partnerId === null) {
       alert("매칭 대상의 ID를 찾을 수 없습니다. (백엔드 데이터 필드명 확인 필요)");
-      return; // ID가 없으면 에러가 날 게 뻔하므로 통신을 중단시킵니다.
+      return;
     }
 
     try {
-      // 💡 백엔드가 요청한 'Content-Type'과 'body'를 완벽하게 세팅하여 전송!
       const res = await fetch(`http://localhost:8080/api/admin/seniors/${selectedSeniorId}/match`, {
         method: 'POST',
-        headers: getAuthHeaders(), // 내부에 'Content-Type': 'application/json' 이 포함되어 있음
-        body: JSON.stringify({ partnerId: partnerId }) // 백엔드가 기다리는 DTO 필드!
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ partnerId: partnerId })
       });
 
       if (res.ok) {
@@ -121,6 +123,7 @@ export default function AdminDashboard() {
       <Sidebar />
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
 
+        {/* 상단 헤더 */}
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
           <h1 className="text-2xl font-bold text-slate-900">관리자 대시보드</h1>
           <div className="flex items-center gap-6">
@@ -142,62 +145,87 @@ export default function AdminDashboard() {
         <div className="flex-1 overflow-y-auto p-8">
           <SummaryCards notificationCount={dangerSignals.length + notifications.length} />
 
+          {/* 💡 탭 메뉴 버튼 (어르신 관리 / 미션 배포 현황) */}
+          <div className="flex gap-3 mb-6">
+            <button
+              onClick={() => setActiveTab('SENIORS')}
+              className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm ${activeTab === 'SENIORS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+            >
+              어르신 관리
+            </button>
+            <button
+              onClick={() => setActiveTab('MISSIONS')}
+              className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm ${activeTab === 'MISSIONS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+            >
+              미션 배포 및 현황
+            </button>
+          </div>
+
+          {/* 메인 콘텐츠 영역 (그리드 레이아웃) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* 어르신 매칭 관리 테이블 */}
+
+            {/* 💡 탭 상태에 따라 좌측 넓은 영역의 컴포넌트를 교체합니다 */}
             <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h3 className="font-bold text-slate-800 text-lg">어르신 펜팔 매칭 관리</h3>
-                <span className="text-sm text-slate-500">총 <span className="font-bold text-teal-600">{seniors.length}</span>명</span>
-              </div>
-              <div className="overflow-x-auto flex-1 p-4">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="text-slate-500 text-sm border-b border-slate-200">
-                      <th className="py-3 px-4 font-medium">성함 (나이)</th>
-                      <th className="py-3 px-4 font-medium">국적</th>
-                      <th className="py-3 px-4 font-medium">상태</th>
-                      <th className="py-3 px-4 font-medium">매칭 파트너</th>
-                      <th className="py-3 px-4 font-medium text-center">관리 액션</th>
-                    </tr>
-                  </thead>
-                  <tbody className="text-sm divide-y divide-slate-100">
-                    {seniors.map(senior => (
-                      <tr key={senior.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-4 px-4 font-bold text-slate-900">{senior.name}</td>
-                        <td className="py-4 px-4 text-slate-500">{senior.country === 'KR' ? '🇰🇷 한국' : '🇯🇵 일본'}</td>
-                        <td className="py-4 px-4">
-                          {senior.matchStatus === 'WAITING' ? (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">대기 중</span>
-                          ) : (
-                            <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">교류 중</span>
-                          )}
-                        </td>
-                        <td className="py-4 px-4 text-slate-600 font-medium">{senior.partnerName || '-'}</td>
-                        <td className="py-4 px-4 text-center">
-                          {senior.matchStatus === 'WAITING' ? (
-                            <button
-                              onClick={() => openRecommendModal(senior.id)}
-                              className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold mx-auto flex items-center gap-1"
-                            >
-                              <LinkIcon className="w-3 h-3" /> 매칭 추천받기
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleUnmatch(senior.id)}
-                              className="bg-white border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold mx-auto flex items-center gap-1"
-                            >
-                              <RefreshCcw className="w-3 h-3" /> 매칭 해제
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {activeTab === 'SENIORS' ? (
+                <>
+                  <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                    <h3 className="font-bold text-slate-800 text-lg">어르신 펜팔 매칭 관리</h3>
+                    <span className="text-sm text-slate-500">총 <span className="font-bold text-teal-600">{seniors.length}</span>명</span>
+                  </div>
+                  <div className="overflow-x-auto flex-1 p-4">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="text-slate-500 text-sm border-b border-slate-200">
+                          <th className="py-3 px-4 font-medium">성함 (나이)</th>
+                          <th className="py-3 px-4 font-medium">국적</th>
+                          <th className="py-3 px-4 font-medium">상태</th>
+                          <th className="py-3 px-4 font-medium">매칭 파트너</th>
+                          <th className="py-3 px-4 font-medium text-center">관리 액션</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm divide-y divide-slate-100">
+                        {seniors.map(senior => (
+                          <tr key={senior.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-4 px-4 font-bold text-slate-900">{senior.name}</td>
+                            <td className="py-4 px-4 text-slate-500">{senior.country === 'KR' ? '🇰🇷 한국' : '🇯🇵 일본'}</td>
+                            <td className="py-4 px-4">
+                              {senior.matchStatus === 'WAITING' ? (
+                                <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">대기 중</span>
+                              ) : (
+                                <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">교류 중</span>
+                              )}
+                            </td>
+                            <td className="py-4 px-4 text-slate-600 font-medium">{senior.partnerName || '-'}</td>
+                            <td className="py-4 px-4 text-center">
+                              {senior.matchStatus === 'WAITING' ? (
+                                <button
+                                  onClick={() => openRecommendModal(senior.id)}
+                                  className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold mx-auto flex items-center gap-1"
+                                >
+                                  <LinkIcon className="w-3 h-3" /> 매칭 추천받기
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleUnmatch(senior.id)}
+                                  className="bg-white border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold mx-auto flex items-center gap-1"
+                                >
+                                  <RefreshCcw className="w-3 h-3" /> 매칭 해제
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : (
+                /* 💡 새로 추가한 미션 배포 및 현황 컴포넌트 렌더링 */
+                <MissionManager seniors={seniors} />
+              )}
             </div>
 
-            {/* 새로 구현된 알림/신호 컴포넌트 통합 */}
+            {/* 기존 알림/위험 신호 컴포넌트 통합 (우측 좁은 영역 고정) */}
             <NotificationList
               notifications={notifications}
               dangerSignals={dangerSignals}
@@ -223,10 +251,6 @@ export default function AdminDashboard() {
                 <p className="text-center text-slate-500 py-10">현재 적합한 대기자가 없습니다.</p>
               ) : (
                 recommendedPartners.map((partner, index) => {
-                  // 🔥 백엔드에서 어떤 이름으로 데이터를 주는지 콘솔에서 직접 확인하기 위한 코드
-                  console.log(`🔍 추천 파트너 [${index}]의 전체 데이터:`, partner);
-
-                  // 여러 가지 가능성 있는 ID 필드명을 모두 체크해서 하나라도 걸리게 만듭니다.
                   const targetId = partner.id || partner.partnerId || partner.seniorId;
 
                   return (
@@ -247,6 +271,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* 신규 어르신 등록 모달 */}
       <AddSeniorModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
