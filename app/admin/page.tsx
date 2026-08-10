@@ -5,24 +5,27 @@ import Sidebar from '@/components/admin/Sidebar';
 import SummaryCards from '@/components/admin/SummaryCards';
 import NotificationList from '@/components/admin/NotificationList';
 import AddSeniorModal from '@/components/admin/AddSeniorModal';
-import MissionManager from '@/components/admin/MissionManager'; // 💡 새로 만든 컴포넌트 임포트
-import { Plus, Link as LinkIcon, RefreshCcw, Bell, X, UserCheck } from 'lucide-react';
+import MissionManager from '@/components/admin/MissionManager';
+import ParticipantStatusTable from '@/components/admin/ParticipantStatusTable';
+import ExchangeHistoryModal from '@/components/admin/ExchangeHistoryModal'; // 💡 교류 내역 모달 임포트
+import { Bell, X, UserCheck, Link as LinkIcon, RefreshCcw, Search } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MATCHING' | 'MISSIONS'>('DASHBOARD');
 
-  // 데이터 State 관리
-  const [seniors, setSeniors] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [dangerSignals, setDangerSignals] = useState<any[]>([]);
+  const [seniors, setSeniors] = useState<any[]>([]);
 
-  // 추천 매칭 모달 관련 State
+  // 추천 매칭 모달 State
   const [isRecommendModalOpen, setIsRecommendModalOpen] = useState(false);
   const [selectedSeniorId, setSelectedSeniorId] = useState<number | null>(null);
   const [recommendedPartners, setRecommendedPartners] = useState<any[]>([]);
 
-  // 💡 탭 상태 관리 (어르신 목록 vs 미션 관리) 추가
-  const [activeTab, setActiveTab] = useState<'SENIORS' | 'MISSIONS'>('SENIORS');
+  // 💡 교류 내역 확인 모달 State
+  const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
+  const [selectedExchangeSenior, setSelectedExchangeSenior] = useState<any | null>(null);
 
   useEffect(() => {
     fetchSeniors();
@@ -38,76 +41,58 @@ export default function AdminDashboard() {
     };
   };
 
-  // 1. 데이터 Fetch 함수들
   const fetchSeniors = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/admin/seniors', { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors`, { headers: getAuthHeaders() });
       if (res.ok) setSeniors(await res.json());
     } catch (e) { console.error("어르신 목록 조회 실패", e); }
   };
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/admin/notifications/unread', { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/notifications/unread`, { headers: getAuthHeaders() });
       if (res.ok) setNotifications(await res.json());
     } catch (e) { console.error("알림 조회 실패", e); }
   };
 
   const fetchDangerSignals = async () => {
     try {
-      const res = await fetch('http://localhost:8080/api/admin/signals', { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/signals`, { headers: getAuthHeaders() });
       if (res.ok) setDangerSignals(await res.json());
     } catch (e) { console.error("위험 신호 조회 실패", e); }
   };
 
-  // 2. 추천 매칭 프로세스
   const openRecommendModal = async (seniorId: number) => {
     setSelectedSeniorId(seniorId);
     try {
-      const res = await fetch(`http://localhost:8080/api/admin/seniors/${seniorId}/recommends`, { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors/${seniorId}/recommends`, { headers: getAuthHeaders() });
       if (res.ok) {
         setRecommendedPartners(await res.json());
         setIsRecommendModalOpen(true);
       }
-    } catch (e) {
-      console.error("추천 목록 조회 실패", e);
-      alert("추천 목록을 불러올 수 없습니다.");
-    }
+    } catch (e) { alert("추천 목록을 불러올 수 없습니다."); }
   };
 
   const confirmMatch = async (partnerId: number) => {
     if (!selectedSeniorId) return;
-
-    console.log("👉 백엔드로 전송할 파트너 ID: ", partnerId);
-
-    if (partnerId === undefined || partnerId === null) {
-      alert("매칭 대상의 ID를 찾을 수 없습니다. (백엔드 데이터 필드명 확인 필요)");
-      return;
-    }
-
     try {
-      const res = await fetch(`http://localhost:8080/api/admin/seniors/${selectedSeniorId}/match`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors/${selectedSeniorId}/match`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ partnerId: partnerId })
       });
-
       if (res.ok) {
         alert("매칭이 성공적으로 확정되었습니다!");
         setIsRecommendModalOpen(false);
-        fetchSeniors(); // 매칭 완료 후 목록 최신화
-      } else {
-        alert("매칭 처리에 실패했습니다. (서버 응답 오류)");
+        fetchSeniors();
       }
-    } catch (e) {
-      alert("매칭 확정 중 오류가 발생했습니다.");
-    }
+    } catch (e) { alert("매칭 확정 중 오류가 발생했습니다."); }
   };
 
   const handleUnmatch = async (seniorId: number) => {
     if (!window.confirm('정말 매칭을 해제하시겠습니까?')) return;
     try {
-      const res = await fetch(`http://localhost:8080/api/admin/seniors/${seniorId}/unmatch`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors/${seniorId}/unmatch`, {
         method: 'POST',
         headers: getAuthHeaders()
       });
@@ -118,21 +103,22 @@ export default function AdminDashboard() {
     } catch (e) { console.error("매칭 해제 실패", e); }
   };
 
+  // 💡 교류 내역 모달 열기 헬퍼
+  const openExchangeHistory = (senior: any) => {
+    setSelectedExchangeSenior(senior);
+    setIsExchangeModalOpen(true);
+  };
+
+  const matchedPairs = Math.floor(seniors.filter(s => s.matchStatus === 'MATCHED').length / 2);
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar />
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-        {/* 상단 헤더 */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
           <h1 className="text-2xl font-bold text-slate-900">관리자 대시보드</h1>
           <div className="flex items-center gap-6">
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="bg-teal-600 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:bg-teal-700 transition-all shadow-lg shadow-teal-600/20"
-            >
-              <Plus className="w-5 h-5" /> 신규 어르신 등록
-            </button>
             <button className="text-slate-400 hover:text-slate-600 text-xl relative">
               <Bell />
               {notifications.length > 0 && (
@@ -142,32 +128,22 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8">
-          <SummaryCards notificationCount={dangerSignals.length + notifications.length} />
+        <div className="flex-1 overflow-y-auto p-8 bg-[#f8fafc]">
+          <SummaryCards
+            notificationCount={dangerSignals.length + notifications.length}
+            totalSeniors={seniors.length}
+            matchedPairs={matchedPairs}
+          />
 
-          {/* 💡 탭 메뉴 버튼 (어르신 관리 / 미션 배포 현황) */}
-          <div className="flex gap-3 mb-6">
-            <button
-              onClick={() => setActiveTab('SENIORS')}
-              className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm ${activeTab === 'SENIORS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
-            >
-              어르신 관리
-            </button>
-            <button
-              onClick={() => setActiveTab('MISSIONS')}
-              className={`px-6 py-2.5 rounded-xl font-bold transition-all shadow-sm ${activeTab === 'MISSIONS' ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
-            >
-              미션 배포 및 현황
-            </button>
-          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <div className="lg:col-span-3 flex flex-col gap-6">
 
-          {/* 메인 콘텐츠 영역 (그리드 레이아웃) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {activeTab === 'DASHBOARD' && (
+                <ParticipantStatusTable onAddSeniorClick={() => setIsModalOpen(true)} />
+              )}
 
-            {/* 💡 탭 상태에 따라 좌측 넓은 영역의 컴포넌트를 교체합니다 */}
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-              {activeTab === 'SENIORS' ? (
-                <>
+              {activeTab === 'MATCHING' && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden animate-in fade-in duration-300">
                   <div className="px-6 py-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                     <h3 className="font-bold text-slate-800 text-lg">어르신 펜팔 매칭 관리</h3>
                     <span className="text-sm text-slate-500">총 <span className="font-bold text-teal-600">{seniors.length}</span>명</span>
@@ -187,17 +163,20 @@ export default function AdminDashboard() {
                         {seniors.map(senior => (
                           <tr key={senior.id} className="hover:bg-slate-50 transition-colors">
                             <td className="py-4 px-4 font-bold text-slate-900">{senior.name}</td>
-                            <td className="py-4 px-4 text-slate-500">{senior.country === 'KR' ? '🇰🇷 한국' : '🇯🇵 일본'}</td>
+                            <td className="py-4 px-4 text-slate-500">
+                              {senior.country?.toUpperCase() === 'JP' ? '🇯🇵 일본' : '🇰🇷 한국'}
+                            </td>
                             <td className="py-4 px-4">
-                              {senior.matchStatus === 'WAITING' ? (
-                                <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">대기 중</span>
-                              ) : (
+                              {senior.matchStatus === 'MATCHED' ? (
                                 <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">교류 중</span>
+                              ) : (
+                                <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">대기 중</span>
                               )}
                             </td>
                             <td className="py-4 px-4 text-slate-600 font-medium">{senior.partnerName || '-'}</td>
+
                             <td className="py-4 px-4 text-center">
-                              {senior.matchStatus === 'WAITING' ? (
+                              {senior.matchStatus !== 'MATCHED' ? (
                                 <button
                                   onClick={() => openRecommendModal(senior.id)}
                                   className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold mx-auto flex items-center gap-1"
@@ -205,12 +184,21 @@ export default function AdminDashboard() {
                                   <LinkIcon className="w-3 h-3" /> 매칭 추천받기
                                 </button>
                               ) : (
-                                <button
-                                  onClick={() => handleUnmatch(senior.id)}
-                                  className="bg-white border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold mx-auto flex items-center gap-1"
-                                >
-                                  <RefreshCcw className="w-3 h-3" /> 매칭 해제
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  {/* 💡 교류 내역 확인 버튼 추가 */}
+                                  <button
+                                    onClick={() => openExchangeHistory(senior)}
+                                    className="bg-white border border-teal-200 text-teal-600 hover:bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                                  >
+                                    <Search className="w-3 h-3" /> 교류 내역
+                                  </button>
+                                  <button
+                                    onClick={() => handleUnmatch(senior.id)}
+                                    className="bg-white border border-red-200 text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                                  >
+                                    <RefreshCcw className="w-3 h-3" /> 매칭 해제
+                                  </button>
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -218,19 +206,23 @@ export default function AdminDashboard() {
                       </tbody>
                     </table>
                   </div>
-                </>
-              ) : (
-                /* 💡 새로 추가한 미션 배포 및 현황 컴포넌트 렌더링 */
-                <MissionManager seniors={seniors} />
+                </div>
+              )}
+
+              {activeTab === 'MISSIONS' && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden animate-in fade-in duration-300">
+                   <MissionManager seniors={seniors} />
+                </div>
               )}
             </div>
 
-            {/* 기존 알림/위험 신호 컴포넌트 통합 (우측 좁은 영역 고정) */}
-            <NotificationList
-              notifications={notifications}
-              dangerSignals={dangerSignals}
-              refreshData={() => { fetchNotifications(); fetchDangerSignals(); }}
-            />
+            <div className="lg:col-span-1">
+              <NotificationList
+                notifications={notifications}
+                dangerSignals={dangerSignals}
+                refreshData={() => { fetchNotifications(); fetchDangerSignals(); }}
+              />
+            </div>
           </div>
         </div>
       </main>
@@ -252,7 +244,6 @@ export default function AdminDashboard() {
               ) : (
                 recommendedPartners.map((partner, index) => {
                   const targetId = partner.id || partner.partnerId || partner.seniorId;
-
                   return (
                     <div key={targetId || index} className="p-4 border border-slate-200 rounded-xl flex justify-between items-center hover:border-teal-500 hover:bg-teal-50 transition-colors">
                       <div>
@@ -273,6 +264,13 @@ export default function AdminDashboard() {
 
       {/* 신규 어르신 등록 모달 */}
       <AddSeniorModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* 💡 교류 내역 확인 모달 렌더링 */}
+      <ExchangeHistoryModal
+        isOpen={isExchangeModalOpen}
+        onClose={() => setIsExchangeModalOpen(false)}
+        senior={selectedExchangeSenior}
+      />
     </div>
   );
 }

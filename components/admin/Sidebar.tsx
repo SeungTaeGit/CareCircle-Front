@@ -1,9 +1,14 @@
 import React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { HeartHandshake, Building2, PieChart, Users, ListChecks, FileText, User, LogOut } from 'lucide-react';
 
-export default function Sidebar() {
+// 💡 Sidebar가 부모(page.tsx)로부터 현재 선택된 탭 상태와 변경 함수를 받습니다.
+interface SidebarProps {
+  activeTab: 'DASHBOARD' | 'MATCHING' | 'MISSIONS';
+  setActiveTab: (tab: 'DASHBOARD' | 'MATCHING' | 'MISSIONS') => void;
+}
+
+export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const router = useRouter();
 
   const handleLogout = () => {
@@ -25,31 +30,42 @@ export default function Sidebar() {
         </p>
       </div>
 
+      {}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1">
           <li>
-            <Link href="/admin" className="flex items-center px-6 py-3 bg-teal-500/20 border-l-4 border-teal-500 text-teal-400 font-bold">
-              <PieChart className="w-5 h-5 mr-3" /> 대시보드 홈
-            </Link>
+            <button
+              onClick={() => setActiveTab('DASHBOARD')}
+              className={`w-full flex items-center px-6 py-3 transition-colors ${activeTab === 'DASHBOARD' ? 'bg-teal-500/20 border-l-4 border-teal-500 text-teal-400 font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            >
+              <PieChart className="w-5 h-5 mr-3" /> 참여자 대시보드
+            </button>
           </li>
           <li>
-            <a href="#" className="flex items-center px-6 py-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-              <Users className="w-5 h-5 mr-3" /> 어르신 관리
-            </a>
+            <button
+              onClick={() => setActiveTab('MATCHING')}
+              className={`w-full flex items-center px-6 py-3 transition-colors ${activeTab === 'MATCHING' ? 'bg-teal-500/20 border-l-4 border-teal-500 text-teal-400 font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            >
+              <Users className="w-5 h-5 mr-3" /> 펜팔 매칭 관리
+            </button>
           </li>
           <li>
-            <a href="#" className="flex items-center px-6 py-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+            <button
+              onClick={() => setActiveTab('MISSIONS')}
+              className={`w-full flex items-center px-6 py-3 transition-colors ${activeTab === 'MISSIONS' ? 'bg-teal-500/20 border-l-4 border-teal-500 text-teal-400 font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            >
               <ListChecks className="w-5 h-5 mr-3" /> 미션 배포 및 현황
-            </a>
+            </button>
           </li>
           <li>
-            <a href="#" className="flex items-center px-6 py-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-              <FileText className="w-5 h-5 mr-3" /> 기관 통계 리포트
-            </a>
+            <button className="w-full flex items-center px-6 py-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+              <FileText className="w-5 h-5 mr-3" /> 기관 통계 리포트 (준비중)
+            </button>
           </li>
         </ul>
       </nav>
 
+      {}
       <div className="p-4 border-t border-slate-800">
         <button onClick={handleLogout} className="flex items-center text-slate-300 hover:text-white transition-colors w-full">
           <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center mr-3">
