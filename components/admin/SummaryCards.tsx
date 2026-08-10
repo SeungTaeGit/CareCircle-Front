@@ -5,9 +5,10 @@ interface SummaryCardsProps {
   notificationCount: number;
   totalSeniors: number;
   matchedPairs: number;
+  participationRate?: number;
 }
 
-export default function SummaryCards({ notificationCount, totalSeniors, matchedPairs }: SummaryCardsProps) {
+export default function SummaryCards({ notificationCount, totalSeniors, matchedPairs, participationRate = 0 }: SummaryCardsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
       <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
@@ -26,8 +27,7 @@ export default function SummaryCards({ notificationCount, totalSeniors, matchedP
         <div className="flex justify-between items-start">
           <div>
             <p className="text-slate-500 text-sm font-medium mb-1">오늘 미션 참여율</p>
-            {/* 💡 추후 백엔드 API 연동 필요 */}
-            <h3 className="text-3xl font-bold text-slate-900">0<span className="text-lg text-slate-400 font-normal ml-1">%</span></h3>
+            <h3 className="text-3xl font-bold text-slate-900">{participationRate}<span className="text-lg text-slate-400 font-normal ml-1">%</span></h3>
           </div>
           <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center">
             <CheckCheck className="w-5 h-5" />

@@ -16,37 +16,33 @@ interface Props {
 
 export default function ExchangeHistoryModal({ isOpen, onClose, senior }: Props) {
   const [isLoading, setIsLoading] = useState(true);
-
-  // 💡 차후 백엔드 API(GET /api/admin/exchange/{seniorId}/history)로 대체될 가짜 데이터입니다.
   const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen && senior) {
       setIsLoading(true);
-      // API 호출을 시뮬레이션하기 위한 타이머
-      setTimeout(() => {
-        setHistory([
-          {
-            id: 1,
-            sender: senior.name,
-            country: senior.country,
-            type: 'VOICE',
-            content: "오늘 비가 참 많이 오네요. 부침개 부쳐 먹었어요.",
-            translated: "今日は本当に雨がたくさん降りますね。チヂミを焼いて食べました。",
-            date: "2026-08-09 14:30"
-          },
-          {
-            id: 2,
-            sender: senior.partnerName,
-            country: senior.country === 'KR' ? 'JP' : 'KR',
-            type: 'TEXT',
-            content: "日本も雨です。私は温かいお茶を飲みました。",
-            translated: "일본도 비가 옵니다. 저는 따뜻한 차를 마셨어요.",
-            date: "2026-08-09 16:05"
+
+      const fetchHistory = async () => {
+        try {
+          const token = localStorage.getItem('accessToken');
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/exchange/${senior.id}/history`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (res.ok) {
+            setHistory(await res.json());
+          } else {
+            setHistory([]);
           }
-        ]);
-        setIsLoading(false);
-      }, 600);
+        } catch (e) {
+          console.error("교류 내역 로딩 실패", e);
+          setHistory([]);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchHistory();
     }
   }, [isOpen, senior]);
 
@@ -109,11 +105,12 @@ export default function ExchangeHistoryModal({ isOpen, onClose, senior }: Props)
                       <p className="font-medium text-[15px] leading-relaxed mb-2">"{msg.content}"</p>
 
                       {/* 번역된 내용 */}
-                      <div className={`pt-2 mt-2 border-t ${isMe ? 'border-teal-500/50 text-teal-100' : 'border-slate-100 text-slate-500'}`}>
-                        <p className="text-xs font-bold mb-0.5">A.I 번역</p>
-                        <p className="text-sm">"{msg.translated}"</p>
-                      </div>
-
+                      {msg.translated && (
+                        <div className={`pt-2 mt-2 border-t ${isMe ? 'border-teal-500/50 text-teal-100' : 'border-slate-100 text-slate-500'}`}>
+                          <p className="text-xs font-bold mb-0.5">A.I 번역</p>
+                          <p className="text-sm">"{msg.translated}"</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

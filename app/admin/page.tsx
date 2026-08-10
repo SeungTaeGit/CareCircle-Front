@@ -7,7 +7,7 @@ import NotificationList from '@/components/admin/NotificationList';
 import AddSeniorModal from '@/components/admin/AddSeniorModal';
 import MissionManager from '@/components/admin/MissionManager';
 import ParticipantStatusTable from '@/components/admin/ParticipantStatusTable';
-import ExchangeHistoryModal from '@/components/admin/ExchangeHistoryModal'; // 💡 교류 내역 모달 임포트
+import ExchangeHistoryModal from '@/components/admin/ExchangeHistoryModal';
 import { Bell, X, UserCheck, Link as LinkIcon, RefreshCcw, Search } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -17,13 +17,14 @@ export default function AdminDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [dangerSignals, setDangerSignals] = useState<any[]>([]);
   const [seniors, setSeniors] = useState<any[]>([]);
+  const [summaryData, setSummaryData] = useState<{participationRate: number}>({ participationRate: 0 });
 
   // 추천 매칭 모달 State
   const [isRecommendModalOpen, setIsRecommendModalOpen] = useState(false);
   const [selectedSeniorId, setSelectedSeniorId] = useState<number | null>(null);
   const [recommendedPartners, setRecommendedPartners] = useState<any[]>([]);
 
-  // 💡 교류 내역 확인 모달 State
+  // 교류 내역 확인 모달 State
   const [isExchangeModalOpen, setIsExchangeModalOpen] = useState(false);
   const [selectedExchangeSenior, setSelectedExchangeSenior] = useState<any | null>(null);
 
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
     fetchSeniors();
     fetchNotifications();
     fetchDangerSignals();
+    fetchSummary();
   }, []);
 
   const getAuthHeaders = () => {
@@ -60,6 +62,13 @@ export default function AdminDashboard() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/signals`, { headers: getAuthHeaders() });
       if (res.ok) setDangerSignals(await res.json());
     } catch (e) { console.error("위험 신호 조회 실패", e); }
+  };
+
+  const fetchSummary = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/dashboard/summary`, { headers: getAuthHeaders() });
+      if (res.ok) setSummaryData(await res.json());
+    } catch (e) { console.error("요약 정보 조회 실패", e); }
   };
 
   const openRecommendModal = async (seniorId: number) => {
@@ -103,7 +112,6 @@ export default function AdminDashboard() {
     } catch (e) { console.error("매칭 해제 실패", e); }
   };
 
-  // 💡 교류 내역 모달 열기 헬퍼
   const openExchangeHistory = (senior: any) => {
     setSelectedExchangeSenior(senior);
     setIsExchangeModalOpen(true);
@@ -133,6 +141,7 @@ export default function AdminDashboard() {
             notificationCount={dangerSignals.length + notifications.length}
             totalSeniors={seniors.length}
             matchedPairs={matchedPairs}
+            participationRate={summaryData.participationRate}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -163,9 +172,11 @@ export default function AdminDashboard() {
                         {seniors.map(senior => (
                           <tr key={senior.id} className="hover:bg-slate-50 transition-colors">
                             <td className="py-4 px-4 font-bold text-slate-900">{senior.name}</td>
+
                             <td className="py-4 px-4 text-slate-500">
-                              {senior.country?.toUpperCase() === 'JP' ? '🇯🇵 일본' : '🇰🇷 한국'}
+                              {senior.country ? (senior.country.toUpperCase() === 'JP' ? '🇯🇵 일본' : '🇰🇷 한국') : <span className="text-slate-300">정보 없음</span>}
                             </td>
+
                             <td className="py-4 px-4">
                               {senior.matchStatus === 'MATCHED' ? (
                                 <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold">교류 중</span>
@@ -185,7 +196,6 @@ export default function AdminDashboard() {
                                 </button>
                               ) : (
                                 <div className="flex items-center justify-center gap-2">
-                                  {/* 💡 교류 내역 확인 버튼 추가 */}
                                   <button
                                     onClick={() => openExchangeHistory(senior)}
                                     className="bg-white border border-teal-200 text-teal-600 hover:bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
@@ -265,7 +275,7 @@ export default function AdminDashboard() {
       {/* 신규 어르신 등록 모달 */}
       <AddSeniorModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      {/* 💡 교류 내역 확인 모달 렌더링 */}
+      {/* 교류 내역 확인 모달 */}
       <ExchangeHistoryModal
         isOpen={isExchangeModalOpen}
         onClose={() => setIsExchangeModalOpen(false)}
