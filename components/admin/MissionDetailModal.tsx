@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, FileText, CheckCircle2, Clock, SkipForward, Mic, Activity } from 'lucide-react';
+import { X, FileText, CheckCircle2, Clock, SkipForward, Mic, Activity, AlertTriangle } from 'lucide-react';
 
 interface Mission {
   id: number;
@@ -19,20 +19,31 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
   const [isLoading, setIsLoading] = useState(false);
   const [missionResult, setMissionResult] = useState<any>(null);
 
-  // 감정 분석 결과 한국어 변환 헬퍼
+  // 💡 백엔드 가이드: 단일 emotion 텍스트를 직관적인 한글로 매핑합니다.
   const translateEmotion = (emotion: string) => {
-    if (!emotion) return '분석 완료';
+    if (!emotion) return { label: '분석 중', color: 'text-slate-500' };
+
     const upperEmotion = emotion.toUpperCase();
-    if (upperEmotion.includes('HAPPY') || upperEmotion.includes('SMILE')) return '기쁨/긍정';
-    if (upperEmotion.includes('SAD')) return '슬픔/우울';
-    if (upperEmotion.includes('ANGRY')) return '서운함/분노';
-    if (upperEmotion.includes('NEUTRAL') || upperEmotion.includes('CALM')) return '평온/중립';
-    return emotion;
+    switch (upperEmotion) {
+      case 'JOY':
+      case 'HAPPY':
+        return { label: '기쁨/긍정', color: 'text-teal-600' };
+      case 'SADNESS':
+      case 'SAD':
+        return { label: '슬픔/우울', color: 'text-blue-500' };
+      case 'ANGER':
+      case 'ANGRY':
+        return { label: '서운함/분노', color: 'text-rose-500' };
+      case 'FEAR':
+        return { label: '불안/두려움', color: 'text-amber-500' };
+      case 'NEUTRAL':
+      default:
+        return { label: '평온/중립', color: 'text-slate-600' };
+    }
   };
 
   useEffect(() => {
     if (mission) {
-      // 대기 중인 상태면 API를 호출할 필요가 없음
       if (mission.status === 'PENDING') {
         setMissionResult(null);
         setIsLoading(false);
@@ -43,7 +54,6 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
       const fetchResult = async () => {
         try {
           const token = localStorage.getItem('accessToken');
-          // 💡 백엔드 명세에 맞춤: v1을 빼고 /api/admin/missions/{missionId}/result 로 변경
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/missions/${mission.id}/result`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -90,13 +100,11 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
         {/* 본문 */}
         <div className="p-6 bg-[#f8fafc]">
 
-          {/* 미션 원본 질문 */}
           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm mb-6">
             <p className="text-xs font-bold text-teal-600 mb-2">Q. 배포된 미션 (질문)</p>
             <p className="font-bold text-slate-800 text-lg leading-snug break-keep">"{mission.content}"</p>
           </div>
 
-          {/* 진행 상태 및 결과 */}
           <div>
             <p className="text-sm font-bold text-slate-700 mb-3">미션 진행 결과</p>
 
@@ -107,7 +115,6 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
               </div>
             ) : (
               <>
-                {/* 1. 대기중 상태 */}
                 {mission.status === 'PENDING' && (
                   <div className="bg-white rounded-2xl p-8 border border-slate-200 flex flex-col items-center justify-center text-center">
                     <Clock className="w-12 h-12 text-amber-400 mb-3" />
@@ -116,7 +123,6 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
                   </div>
                 )}
 
-                {/* 2. 스킵 상태 */}
                 {mission.status === 'SKIPPED' && (
                   <div className="bg-slate-100 rounded-2xl p-8 border border-slate-200 flex flex-col items-center justify-center text-center">
                     <SkipForward className="w-12 h-12 text-slate-400 mb-3" />
@@ -130,21 +136,26 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
                   </div>
                 )}
 
-                {/* 3. 완료 상태 */}
-                {mission.status === 'COMPLETED' && missionResult && (
-                  <div className="bg-teal-50 rounded-2xl p-6 border border-teal-200 shadow-sm relative overflow-hidden">
-                    <div className="absolute -right-4 -top-4 text-teal-100">
-                      <CheckCircle2 className="w-24 h-24" />
+                {(mission.status === 'COMPLETED' || mission.status === 'REJECTED') && missionResult && (
+                  <div className={`rounded-2xl p-6 border shadow-sm relative overflow-hidden ${mission.status === 'REJECTED' || missionResult.isHarmful ? 'bg-rose-50 border-rose-200' : 'bg-teal-50 border-teal-200'}`}>
+                    <div className={`absolute -right-4 -top-4 ${mission.status === 'REJECTED' || missionResult.isHarmful ? 'text-rose-100' : 'text-teal-100'}`}>
+                      {mission.status === 'REJECTED' || missionResult.isHarmful ? <AlertTriangle className="w-24 h-24" /> : <CheckCircle2 className="w-24 h-24" />}
                     </div>
 
                     <div className="relative z-10">
                       <div className="flex items-center gap-2 mb-4">
-                        <span className="bg-teal-500 text-white text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1">
+                        <span className={`${mission.status === 'REJECTED' || missionResult.isHarmful ? 'bg-rose-500' : 'bg-teal-500'} text-white text-[10px] font-bold px-2 py-1 rounded-md flex items-center gap-1`}>
                           <Mic className="w-3 h-3" /> 음성 응답
                         </span>
                         {missionResult.completedAt && (
-                          <span className="text-xs font-bold text-teal-700">
+                          <span className={`text-xs font-bold ${mission.status === 'REJECTED' || missionResult.isHarmful ? 'text-rose-700' : 'text-teal-700'}`}>
                             {new Date(missionResult.completedAt).toLocaleString('ko-KR')}
+                          </span>
+                        )}
+                        {/* 💡 유해 표현 필터링 감지 시 뱃지 표시 */}
+                        {(mission.status === 'REJECTED' || missionResult.isHarmful) && (
+                          <span className="bg-rose-100 border border-rose-300 text-rose-700 text-[10px] font-bold px-2 py-1 rounded-md ml-auto">
+                            ⚠️ 필터링 감지됨 (반려)
                           </span>
                         )}
                       </div>
@@ -155,15 +166,22 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <div className="bg-white px-3 py-2 rounded-lg border border-teal-100 flex items-center gap-2 shadow-sm">
+                      <div className="flex flex-col gap-3">
+                        <div className="bg-white px-3 py-2 rounded-lg border border-teal-100 flex items-center gap-2 shadow-sm w-fit">
                           <Activity className="w-4 h-4 text-teal-500" />
-                          <span className="text-xs font-bold text-slate-600">AI 감정 분석:</span>
-                          <span className="text-sm font-bold text-teal-700">
-                            {translateEmotion(missionResult.emotion)}
-                            {missionResult.score ? ` (${missionResult.score}%)` : ''}
+                          <span className="text-xs font-bold text-slate-600">AI 주 감정:</span>
+                          <span className={`text-sm font-bold ${translateEmotion(missionResult.emotion).color}`}>
+                            {translateEmotion(missionResult.emotion).label}
                           </span>
                         </div>
+
+                        {/* 💡 유해 필터링 상세 정보 표시 */}
+                        {missionResult.isHarmful && missionResult.toxicCategory && (
+                          <div className="bg-white px-3 py-2 rounded-lg border border-rose-200 flex flex-col gap-1 shadow-sm">
+                            <span className="text-xs font-bold text-rose-600">AI 필터링 사유 (카테고리)</span>
+                            <span className="text-sm font-medium text-slate-700">{missionResult.toxicCategory}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

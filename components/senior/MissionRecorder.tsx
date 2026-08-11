@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Send, Loader2, Hourglass, CheckCircle } from 'lucide-react';
 
 interface MissionRecorderProps {
-  mission: any | null; // 💡 백엔드 필드명이 다를 수 있어 any로 유연하게 받음
+  mission: any | null;
   currentIndex: number;
   totalCount: number;
   isAllDone: boolean;
@@ -17,7 +17,7 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
   const [isDictating, setIsDictating] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const [aiFeedback, setAiFeedback] = useState<{ isPass: boolean; comment: string } | null>(null);
+  const [aiFeedback, setAiFeedback] = useState<{ isPass: boolean; comment: string; isHarmful?: boolean } | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
 
   const recognitionRef = useRef<any>(null);
@@ -88,7 +88,16 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
 
       if (response.ok) {
         const data = await response.json();
-        if (data.isPass) {
+
+        // 💡 백엔드 가이드: isHarmful이 true면 에러/실패 처리 대신 코멘트 띄우고 다시하기 유도
+        if (data.isHarmful) {
+          setAiFeedback({
+            isPass: false,
+            comment: data.aiComment || "말씀을 잘 이해하지 못했어요. 다시 한번 예쁘게 들려주시겠어요?",
+            isHarmful: true
+          });
+          setIsCompleted(false);
+        } else if (data.isPass) {
           setAiFeedback({ isPass: true, comment: data.aiComment });
           setIsCompleted(true);
         } else {
@@ -127,12 +136,6 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
     }
   };
 
-
-  // --------------------------------------------------------
-  // 렌더링 영역
-  // --------------------------------------------------------
-
-  // 1. 서버와 통신 중일 때 (안전한 로딩)
   if (isLoading) {
     return (
       <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm flex flex-col items-center justify-center text-center flex-grow">
@@ -142,7 +145,6 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
     );
   }
 
-  // 2. 배정된 미션이 아예 없을 때 (빈 배열 반환 시)
   if (totalCount === 0) {
     return (
       <div className="bg-slate-50 rounded-3xl p-8 border border-slate-200 shadow-sm text-center flex-grow flex flex-col justify-center items-center">
@@ -153,7 +155,6 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
     );
   }
 
-  // 3. 모든 미션을 마쳤거나 스킵했을 때 (최종 화면)
   if (isAllDone && !isCompleted) {
     return (
       <div className="bg-teal-50 rounded-3xl p-8 border-2 border-teal-500 shadow-md text-center flex-grow flex flex-col justify-center animate-in zoom-in-95 duration-500">
@@ -164,7 +165,6 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
     );
   }
 
-  // 4. 방금 미션을 하나 성공했을 때 (성공 화면)
   if (isCompleted) {
     const isLastMission = currentIndex >= totalCount - 1;
     return (
@@ -182,8 +182,8 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
 
         <button
           onClick={() => {
-            setIsCompleted(false); // 💡 수동으로 '성공 화면' 상태를 꺼줍니다.
-            onRefresh();           // 백엔드에서 최신 완료 상태를 불러옵니다.
+            setIsCompleted(false);
+            onRefresh();
           }}
           className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 rounded-xl shadow-md text-lg transition-colors"
         >
@@ -193,10 +193,8 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
     );
   }
 
-  // 💡 백엔드 필드명이 다를 수 있으므로 안전하게 내용을 가져옵니다.
   const missionText = mission?.content || mission?.title || mission?.missionContent || mission?.text || '미션 내용이 없습니다.';
 
-  // 5. 일반 미션 진행 화면 (PENDING)
   return (
     <div className="bg-white rounded-3xl p-6 border-2 border-teal-500 shadow-md flex-grow flex flex-col relative animate-in slide-in-from-right-4 duration-300">
       <span className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-teal-600 text-white px-5 py-1.5 rounded-full font-bold shadow-md text-sm">
@@ -204,17 +202,21 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
       </span>
 
       <div className="mt-4 mb-4 text-center w-full">
-        {/* 💡 예외 처리된 텍스트를 출력합니다. */}
         <h2 className="text-2xl font-bold text-slate-900 leading-snug break-keep">{missionText}</h2>
       </div>
 
+      {/* 💡 유해 표현 감지 시 따뜻한 메시지로 재시도 유도 */}
       {aiFeedback && !aiFeedback.isPass && (
-        <div className="mb-4 bg-amber-50 p-4 rounded-2xl border border-amber-200 animate-in slide-in-from-bottom-2">
+        <div className={`mb-4 p-4 rounded-2xl border animate-in slide-in-from-bottom-2 ${aiFeedback.isHarmful ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'}`}>
           <div className="flex items-start gap-3">
             <div className="text-2xl">🤖</div>
             <div>
-              <p className="text-sm font-bold text-amber-800 mb-1">다시 한 번 생각해볼까요?</p>
-              <p className="text-sm text-amber-700 leading-relaxed break-keep">{aiFeedback.comment}</p>
+              <p className={`text-sm font-bold mb-1 ${aiFeedback.isHarmful ? 'text-rose-800' : 'text-amber-800'}`}>
+                {aiFeedback.isHarmful ? '잠깐만요!' : '다시 한 번 생각해볼까요?'}
+              </p>
+              <p className={`text-sm leading-relaxed break-keep ${aiFeedback.isHarmful ? 'text-rose-700' : 'text-amber-700'}`}>
+                {aiFeedback.comment}
+              </p>
             </div>
           </div>
         </div>

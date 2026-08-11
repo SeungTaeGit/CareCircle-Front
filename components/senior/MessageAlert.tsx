@@ -33,14 +33,12 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
   const [isRead, setIsRead] = useState(false);
   const [replyMode, setReplyMode] = useState<'NONE' | 'VOICE' | 'TEXT' | 'IMAGE'>('NONE');
 
-  // 텍스트/이미지 상태
   const [textReply, setTextReply] = useState('');
   const [isDictating, setIsDictating] = useState(false);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 음성 녹음 관련 State
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -126,7 +124,16 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     setIsProcessing(false);
   };
 
-  // 📝 A. 텍스트 전송
+  // 💡 백엔드 가이드: 400 에러 및 유해 필터링 차단 시 백엔드 메시지 추출 처리
+  const handleApiError = async (response: Response) => {
+    try {
+      const errData = await response.json();
+      showFeedback(errData.message || "말씀을 잘 이해하지 못했어요. 다시 한번 예쁘게 들려주시겠어요?");
+    } catch {
+      showFeedback("전송에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    }
+  };
+
   const sendTextReply = async () => {
     if (!textReply.trim() || !partnerInfo) return showFeedback("내용을 입력해주세요.");
     setIsProcessing(true);
@@ -141,11 +148,15 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
           messageType: 'TEXT'
         })
       });
-      if (response.ok) { alert("답장이 전송되었습니다!"); onReplySent(); } else { showFeedback("전송에 실패했습니다."); }
+      if (response.ok) {
+        alert("답장이 전송되었습니다!");
+        onReplySent();
+      } else {
+        await handleApiError(response);
+      }
     } catch (e) { showFeedback("네트워크 오류가 발생했습니다."); } finally { setIsProcessing(false); }
   };
 
-  // 🖼️ B. 이미지 전송 (💡 imageFile로 키값 변경 및 data 래핑 적용)
   const sendImageReply = async () => {
     if (!selectedImage || !partnerInfo) return showFeedback("사진을 선택해주세요.");
     setIsProcessing(true);
@@ -153,31 +164,29 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
       const token = localStorage.getItem('accessToken');
       const formData = new FormData();
 
-      // 1. 이미지 파일 추가 (이름을 'imageFile'로 변경!)
       formData.append('imageFile', selectedImage);
-
-      // 2. JSON 데이터 추가 ('data' 래핑)
       const requestData = {
         receiverId: partnerInfo.partnerId || partnerInfo.id || 2,
         content: "",
         messageType: 'IMAGE'
       };
 
-      formData.append(
-        'data',
-        new Blob([JSON.stringify(requestData)], { type: 'application/json' })
-      );
+      formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/image`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }, // FormData 전송 시 Content-Type은 비워둡니다
+        headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
-      if (response.ok) { alert("사진이 전송되었습니다!"); onReplySent(); } else { showFeedback("사진 전송에 실패했습니다."); }
+      if (response.ok) {
+        alert("사진이 전송되었습니다!");
+        onReplySent();
+      } else {
+        await handleApiError(response);
+      }
     } catch (e) { showFeedback("네트워크 오류가 발생했습니다."); } finally { setIsProcessing(false); }
   };
 
-  // 🎤 C. 음성 녹음 시작 / 종료
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -208,7 +217,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     }
   };
 
-  // 🎤 C-2. 음성 전송
   const sendVoiceReply = async () => {
     if (!audioBlob || !partnerInfo) return showFeedback("녹음된 음성이 없습니다.");
     setIsProcessing(true);
@@ -217,17 +225,13 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
       const formData = new FormData();
 
       formData.append('audioFile', audioBlob, 'voice.webm');
-
       const requestData = {
         receiverId: partnerInfo.partnerId || partnerInfo.id || 2,
         content: "",
         messageType: "VOICE"
       };
 
-      formData.append(
-        'data',
-        new Blob([JSON.stringify(requestData)], { type: 'application/json' })
-      );
+      formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/voice`, {
         method: 'POST',
@@ -239,7 +243,7 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
         alert("음성 편지가 전송되었습니다!");
         onReplySent();
       } else {
-        showFeedback("음성 전송에 실패했습니다.");
+        await handleApiError(response);
       }
     } catch (e) {
       showFeedback("네트워크 오류가 발생했습니다.");
@@ -248,10 +252,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     }
   };
 
-
-  // =========================================================================
-  // 렌더링 영역 (입력 폼은 컴포넌트로 분리하여 중복 방지)
-  // =========================================================================
   const renderInputForm = (themeColor: 'teal' | 'amber') => (
     <div className={`mt-4 bg-white rounded-2xl p-4 border border-${themeColor}-200 shadow-sm animate-in fade-in slide-in-from-top-2`}>
       <div className="flex justify-between items-center mb-3">
@@ -261,7 +261,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
         <button onClick={() => setReplyMode('NONE')} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
       </div>
 
-      {/* 텍스트 입력 */}
       {replyMode === 'TEXT' && (
         <div className="flex flex-col gap-3">
           <textarea value={textReply} onChange={(e) => setTextReply(e.target.value)} placeholder="여기를 눌러 직접 쓰시거나, 마이크 버튼을 눌러 말씀하세요."
@@ -277,7 +276,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
         </div>
       )}
 
-      {/* 이미지 입력 */}
       {replyMode === 'IMAGE' && (
         <div className="flex flex-col gap-3">
           <input type="file" accept="image/*" ref={fileInputRef} onChange={handleImageSelect} className="hidden" />
@@ -298,7 +296,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
         </div>
       )}
 
-      {/* 음성 녹음 입력 */}
       {replyMode === 'VOICE' && (
         <div className="flex flex-col items-center gap-4 py-4">
           {audioBlob ? (
@@ -332,7 +329,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     </div>
   );
 
-  // 1. 메시지가 없을 때 (먼저 인사하기)
   if (!message) {
     return (
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-2">
@@ -378,7 +374,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     );
   }
 
-  // 2. 메시지가 도착했을 때
   return (
     <div className="bg-amber-50 rounded-3xl p-5 border-2 border-amber-200 shadow-sm animate-in slide-in-from-top-4">
       <div className="flex items-center gap-2 mb-3">

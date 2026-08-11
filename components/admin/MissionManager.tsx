@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, RefreshCcw, CheckCircle2, Clock, SkipForward } from 'lucide-react';
+import { Plus, RefreshCcw, CheckCircle2, Clock, SkipForward, Ban } from 'lucide-react';
 import AddMissionModal from './AddMissionModal';
 import MissionDetailModal from './MissionDetailModal'; // 💡 새로 만든 미션 상세 모달 임포트
 
@@ -90,6 +90,8 @@ export default function MissionManager({ seniors }: MissionManagerProps) {
                   <td className="py-4 px-4">
                     {m.status === 'COMPLETED' ? (
                       <span className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold flex items-center w-fit gap-1"><CheckCircle2 className="w-3 h-3"/> 완료</span>
+                    ) : m.status === 'REJECTED' ? (
+                      <span className="px-3 py-1 bg-rose-100 text-rose-700 rounded-full text-xs font-bold flex items-center w-fit gap-1"><Ban className="w-3 h-3"/> 반려됨</span>
                     ) : m.status === 'SKIPPED' ? (
                       <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold flex items-center w-fit gap-1"><SkipForward className="w-3 h-3"/> 스킵</span>
                     ) : (
