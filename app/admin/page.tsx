@@ -8,11 +8,12 @@ import AddSeniorModal from '@/components/admin/AddSeniorModal';
 import MissionManager from '@/components/admin/MissionManager';
 import ParticipantStatusTable from '@/components/admin/ParticipantStatusTable';
 import ExchangeHistoryModal from '@/components/admin/ExchangeHistoryModal';
+import ReportManager from '@/components/admin/ReportManager';
 import { Bell, X, UserCheck, Link as LinkIcon, RefreshCcw, Search } from 'lucide-react';
 
 export default function AdminDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MATCHING' | 'MISSIONS'>('DASHBOARD');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'MATCHING' | 'MISSIONS' | 'REPORTS'>('DASHBOARD');
 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [dangerSignals, setDangerSignals] = useState<any[]>([]);
@@ -222,6 +223,12 @@ export default function AdminDashboard() {
               {activeTab === 'MISSIONS' && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden animate-in fade-in duration-300">
                    <MissionManager seniors={seniors} />
+                </div>
+              )}
+
+              {activeTab === 'REPORTS' && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden animate-in fade-in duration-300 h-full min-h-[600px]">
+                  <ReportManager />
                 </div>
               )}
             </div>

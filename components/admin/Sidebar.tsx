@@ -2,10 +2,9 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { HeartHandshake, Building2, PieChart, Users, ListChecks, FileText, User, LogOut } from 'lucide-react';
 
-// 💡 Sidebar가 부모(page.tsx)로부터 현재 선택된 탭 상태와 변경 함수를 받습니다.
 interface SidebarProps {
-  activeTab: 'DASHBOARD' | 'MATCHING' | 'MISSIONS';
-  setActiveTab: (tab: 'DASHBOARD' | 'MATCHING' | 'MISSIONS') => void;
+  activeTab: 'DASHBOARD' | 'MATCHING' | 'MISSIONS' | 'REPORTS'; // 💡 REPORTS 추가
+  setActiveTab: (tab: 'DASHBOARD' | 'MATCHING' | 'MISSIONS' | 'REPORTS') => void;
 }
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
@@ -30,7 +29,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         </p>
       </div>
 
-      {}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1">
           <li>
@@ -58,14 +56,16 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             </button>
           </li>
           <li>
-            <button className="w-full flex items-center px-6 py-3 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
-              <FileText className="w-5 h-5 mr-3" /> 기관 통계 리포트 (준비중)
+            <button
+              onClick={() => setActiveTab('REPORTS')} // 💡 리포트 탭 활성화
+              className={`w-full flex items-center px-6 py-3 transition-colors ${activeTab === 'REPORTS' ? 'bg-teal-500/20 border-l-4 border-teal-500 text-teal-400 font-bold' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+            >
+              <FileText className="w-5 h-5 mr-3" /> 주간 감정 리포트
             </button>
           </li>
         </ul>
       </nav>
 
-      {}
       <div className="p-4 border-t border-slate-800">
         <button onClick={handleLogout} className="flex items-center text-slate-300 hover:text-white transition-colors w-full">
           <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center mr-3">
