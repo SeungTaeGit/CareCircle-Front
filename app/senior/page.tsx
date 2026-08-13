@@ -5,39 +5,19 @@ import SeniorHeader from '@/components/senior/SeniorHeader';
 import MessageAlert from '@/components/senior/MessageAlert';
 import MissionRecorder from '@/components/senior/MissionRecorder';
 import BottomNav from '@/components/senior/BottomNav';
+import TogetherGarden from '@/components/senior/TogetherGarden'; // 💡 정원 컴포넌트 추가
 
-interface SeniorProfile {
-  id?: number;
-  seniorId?: number;
-  name: string;
-}
+// ... 기존 인터페이스들 ...
+interface SeniorProfile { id?: number; seniorId?: number; name: string; }
+interface PartnerProfile { partnerId: number; partnerName: string; country: string; language: string; }
+interface ExchangeMessage { messageId: number; senderName: string; messageType: 'VOICE'|'TEXT'|'IMAGE'; content?: string; audioUrl?: string; imageUrl?: string; translatedContent?: string; status: string; }
+interface DailyMission { id?: number; missionId?: number; content?: string; title?: string; missionContent?: string; text?: string; status: string; }
 
-interface PartnerProfile {
-  partnerId: number;
-  partnerName: string;
-  country: string;
-  language: string;
-}
-
-interface ExchangeMessage {
-  messageId: number;
-  senderName: string;
-  messageType: 'VOICE' | 'TEXT' | 'IMAGE';
-  content?: string;
-  audioUrl?: string;
-  imageUrl?: string;
-  translatedContent?: string;
-  status: string;
-}
-
-interface DailyMission {
-  id?: number;
-  missionId?: number;
-  content?: string;
-  title?: string;
-  missionContent?: string;
-  text?: string;
-  status: string;
+// 💡 정원 데이터 인터페이스 추가
+interface GardenData {
+  plantLevel: number;
+  currentExp: number;
+  requiredExp: number;
 }
 
 export default function SeniorMainPage() {
@@ -49,9 +29,11 @@ export default function SeniorMainPage() {
   const [missions, setMissions] = useState<DailyMission[]>([]);
   const [currentMissionIndex, setCurrentMissionIndex] = useState<number>(0);
   const [isAllDone, setIsAllDone] = useState<boolean>(false);
-
-  // 💡 로딩 상태를 관리하는 State 추가
   const [isLoadingMissions, setIsLoadingMissions] = useState<boolean>(true);
+
+  // 💡 정원 및 탭 상태 추가
+  const [gardenData, setGardenData] = useState<GardenData | null>(null);
+  const [activeTab, setActiveTab] = useState<'HOME' | 'GARDEN' | 'GALLERY'>('HOME');
 
   const fetchMissions = async (id: number) => {
     setIsLoadingMissions(true);
@@ -60,14 +42,12 @@ export default function SeniorMainPage() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/missions/today?seniorId=${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
       if (res.ok) {
         const data = await res.json();
         const missionsArray = Array.isArray(data) ? data : (data ? [data] : []);
         setMissions(missionsArray);
 
         const firstPendingIdx = missionsArray.findIndex((m: DailyMission) => m.status === 'PENDING');
-
         if (firstPendingIdx !== -1) {
           setCurrentMissionIndex(firstPendingIdx);
           setIsAllDone(false);
@@ -76,11 +56,21 @@ export default function SeniorMainPage() {
           setIsAllDone(missionsArray.length > 0);
         }
       }
-    } catch (e) {
-      console.error("미션 로딩 실패:", e);
-    } finally {
-      setIsLoadingMissions(false); // 로딩 끝!
-    }
+    } catch (e) { console.error("미션 로딩 실패:", e); }
+    finally { setIsLoadingMissions(false); }
+  };
+
+  // 💡 정원 정보 로드 함수 추가
+  const fetchGarden = async (id: number) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/garden/${id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setGardenData(await res.json());
+      }
+    } catch (e) { console.error("정원 정보 로딩 실패:", e); }
   };
 
   useEffect(() => {
@@ -114,6 +104,7 @@ export default function SeniorMainPage() {
           });
 
         fetchMissions(currentId);
+        fetchGarden(currentId); // 💡 앱 켤 때 정원 정보도 함께 로드
 
       } catch (error) {
         console.error("초기 데이터 로딩 에러:", error);
@@ -130,35 +121,62 @@ export default function SeniorMainPage() {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-    } catch (error) {
-      console.error("읽음 처리 에러:", error);
-    }
+    } catch (error) { console.error("읽음 처리 에러:", error); }
   };
 
   return (
     <div className="bg-slate-200 min-h-screen flex justify-center selection:bg-teal-200">
       <div className="bg-slate-50 w-full max-w-[480px] min-h-screen shadow-2xl relative flex flex-col pb-24 overflow-hidden">
-        <SeniorHeader profile={profile} />
+
+        {/* 헤더에는 프로필과 정원 데이터를 모두 넘겨줍니다 */}
+        <SeniorHeader profile={profile} gardenData={gardenData} />
 
         <main className="flex-grow p-6 flex flex-col gap-5 overflow-y-auto">
-          <MessageAlert
-            message={unreadMessage}
-            partnerInfo={partnerInfo}
-            onRead={handleMarkAsRead}
-            onReplySent={() => setUnreadMessage(null)}
-          />
 
-          <MissionRecorder
-            mission={missions[currentMissionIndex] || null}
-            currentIndex={currentMissionIndex}
-            totalCount={missions.length}
-            isAllDone={isAllDone}
-            isLoading={isLoadingMissions} // 💡 로딩 상태 전달
-            onRefresh={() => fetchMissions(seniorId)}
-          />
+          {/* 💡 탭 분기 처리: HOME일 때 미션/편지, GARDEN일 때 정원 렌더링 */}
+          {activeTab === 'HOME' && (
+            <>
+              <MessageAlert
+                message={unreadMessage}
+                partnerInfo={partnerInfo}
+                onRead={handleMarkAsRead}
+                onReplySent={() => {
+                  setUnreadMessage(null);
+                  fetchGarden(seniorId); // 💡 답장 후 정원 경험치 갱신
+                }}
+              />
+
+              <MissionRecorder
+                mission={missions[currentMissionIndex] || null}
+                currentIndex={currentMissionIndex}
+                totalCount={missions.length}
+                isAllDone={isAllDone}
+                isLoading={isLoadingMissions}
+                onRefresh={() => {
+                  fetchMissions(seniorId);
+                  fetchGarden(seniorId); // 💡 미션 완료/스킵 후 정원 경험치 갱신
+                }}
+              />
+            </>
+          )}
+
+          {activeTab === 'GARDEN' && (
+            <TogetherGarden
+              gardenData={gardenData}
+            />
+          )}
+
+          {activeTab === 'GALLERY' && (
+            <div className="flex-grow flex flex-col items-center justify-center text-slate-400">
+              <span className="text-6xl mb-4">📸</span>
+              <p className="font-bold">사진첩은 곧 업데이트 됩니다!</p>
+            </div>
+          )}
+
         </main>
 
-        <BottomNav />
+        {/* 하단 네비게이션 */}
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
       </div>
     </div>
   );
