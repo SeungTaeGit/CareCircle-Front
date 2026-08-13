@@ -1,35 +1,36 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Mic } from 'lucide-react';
-import GuardianHeader from '../../components/guardian/GuardianHeader';
-import SeniorStatusCard from '../../components/guardian/SeniorStatusCard';
-import ActivityFeed from '../../components/guardian/ActivityFeed';
+import { Mic, Heart, Calendar, Activity, Sun, CloudRain, Cloud, Sparkles, AlertCircle } from 'lucide-react';
+import CheerMessageModal from '@/components/guardian/CheerMessageModal';
 
-interface Activity {
-  id: number;
-  date: string;
-  missionTitle: string;
-  type: 'VOICE' | 'PHOTO';
-  contentSummary: string;
-}
+export default function GuardianDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export default function GuardianDashboardPage() {
-  const [seniorStatus, setSeniorStatus] = useState({ name: '', sentiment: 'Sunny' as const, gardenLevel: 1 });
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // 백엔드에서 받을 데이터를 저장할 상태
+  const [seniorStatus, setSeniorStatus] = useState({
+    seniorId: 0,
+    name: '부모님',
+    sentiment: 'Sunny',
+    gardenLevel: 1
+  });
+  const [activities, setActivities] = useState<any[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchGuardianData = async () => {
       try {
+        setLoading(true);
         const token = localStorage.getItem('accessToken');
+
         if (!token) {
-          console.warn('로그인 토큰이 없습니다.');
-          setIsLoading(false);
+          setError('로그인이 필요합니다.');
+          setLoading(false);
           return;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/activities/guardian`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/activities/guardian`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -39,52 +40,154 @@ export default function GuardianDashboardPage() {
 
         if (response.ok) {
           const data = await response.json();
+
           setSeniorStatus({
-            name: data.seniorName,
-            sentiment: data.sentiment,
-            gardenLevel: data.gardenLevel
+            seniorId: data.seniorId,
+            name: data.seniorName || '부모님',
+            sentiment: data.sentiment || 'Sunny',
+            gardenLevel: data.gardenLevel || 1
           });
-          setActivities(data.activities);
+          setActivities(data.activities || []);
         } else {
-          console.error("데이터를 불러오는데 실패했습니다. 상태 코드:", response.status);
+          setError('데이터를 불러오는데 실패했습니다.');
         }
-      } catch (error) {
-        console.error("서버 통신 에러:", error);
+      } catch (err) {
+        console.error("데이터 로딩 에러:", err);
+        setError('서버와 연결할 수 없습니다.');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
 
     fetchGuardianData();
   }, []);
 
+  const getSentimentIcon = (sentiment: string) => {
+    const s = sentiment?.toUpperCase() || '';
+    if (s === 'SUNNY' || s === 'HAPPY' || s === 'JOY') return <Sun className="w-10 h-10 text-orange-500" />;
+    if (s === 'RAINY' || s === 'SAD' || s === 'SADNESS') return <CloudRain className="w-10 h-10 text-blue-500" />;
+    if (s === 'CLOUDY' || s === 'ANGRY') return <Cloud className="w-10 h-10 text-slate-500" />;
+    return <Sun className="w-10 h-10 text-orange-500" />; // 기본값
+  };
+
+  const getSentimentText = (sentiment: string) => {
+    const s = sentiment?.toUpperCase() || '';
+    if (s === 'SUNNY' || s === 'HAPPY' || s === 'JOY') return '맑음 (기분 좋음)';
+    if (s === 'RAINY' || s === 'SAD' || s === 'SADNESS') return '비 (우울/외로움)';
+    if (s === 'CLOUDY' || s === 'ANGRY') return '흐림 (서운함)';
+    return '평온함';
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-slate-50 min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center animate-pulse">
+          <Heart className="w-12 h-12 text-rose-300 mb-4 animate-bounce" />
+          <p className="text-slate-500 font-bold">부모님 소식을 불러오는 중입니다...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-slate-50 min-h-screen flex items-center justify-center p-6">
+        <div className="bg-white p-6 rounded-2xl shadow-sm text-center border border-slate-200">
+          <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-3" />
+          <p className="text-slate-700 font-bold">{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-4 px-4 py-2 bg-slate-900 text-white rounded-lg font-medium">다시 시도</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 selection:bg-amber-200 text-slate-800 font-sans pb-20">
-      <GuardianHeader />
+    <div className="bg-slate-100 min-h-screen flex justify-center selection:bg-teal-200">
+      <div className="bg-slate-50 w-full max-w-[480px] min-h-screen shadow-2xl relative flex flex-col pb-24 overflow-hidden">
 
-      <main className="max-w-3xl mx-auto px-4 pt-6">
-        {isLoading ? (
-          <div className="text-center py-20 text-slate-500 font-bold animate-pulse">
-            어르신 데이터를 불러오는 중입니다...
+        {/* 헤더 */}
+        <header className="bg-white p-6 pt-10 rounded-b-3xl shadow-sm z-10">
+          <p className="text-slate-500 font-medium text-sm mb-1">사랑하는 부모님의 오늘</p>
+          <h1 className="text-2xl font-bold text-slate-900">
+            <span className="text-teal-600">{seniorStatus.name}</span> 어르신 대시보드
+          </h1>
+        </header>
+
+        {/* 대시보드 본문 */}
+        <main className="flex-grow p-5 space-y-4 overflow-y-auto">
+
+          {/* 상태 요약 카드들 */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center text-center">
+              <p className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-1"><Heart className="w-3 h-3"/> AI 분석 기분</p>
+              {getSentimentIcon(seniorStatus.sentiment)}
+              <p className="font-bold text-slate-800 mt-3 text-sm">{getSentimentText(seniorStatus.sentiment)}</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center text-center">
+              <p className="text-xs font-bold text-slate-400 mb-3 flex items-center gap-1"><Sparkles className="w-3 h-3"/> 정원 레벨</p>
+              <div className="text-4xl mb-1">
+                {seniorStatus.gardenLevel >= 4 ? '🌲' : seniorStatus.gardenLevel === 3 ? '🌳' : seniorStatus.gardenLevel === 2 ? '🌿' : '🌱'}
+              </div>
+              <p className="font-bold text-teal-700 mt-2 text-sm">레벨 {seniorStatus.gardenLevel}</p>
+            </div>
           </div>
-        ) : (
-          <>
-            <SeniorStatusCard
-              seniorName={seniorStatus.name}
-              sentiment={seniorStatus.sentiment}
-              gardenLevel={seniorStatus.gardenLevel}
-            />
-            <ActivityFeed activities={activities} />
-          </>
-        )}
-      </main>
 
-      <div className="fixed bottom-0 w-full bg-white border-t border-slate-200 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.05)] z-50">
-        <div className="max-w-3xl mx-auto">
-          <button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-2xl shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+          {}
+          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mt-2">
+            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-teal-500" /> 최근 활동 내역
+            </h2>
+
+            {activities.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 font-medium text-sm">
+                아직 기록된 활동이 없습니다.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {activities.map((activity, index) => (
+                  <div key={activity.id || index} className="flex gap-4 items-start relative">
+                    {/* 타임라인 선 */}
+                    {index !== activities.length - 1 && (
+                      <div className="absolute left-4 top-8 w-0.5 h-full bg-slate-100 -z-10"></div>
+                    )}
+                    <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center flex-shrink-0 border border-teal-100 text-teal-600">
+                      <Calendar className="w-4 h-4" />
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl rounded-tl-none border border-slate-100 flex-grow shadow-sm">
+                      <p className="text-xs text-teal-600 font-bold mb-1.5">{activity.date}</p>
+
+                      {/* 💡 백엔드에서 전달준 missionTitle과 contentSummary를 렌더링합니다! */}
+                      <p className="text-sm font-bold text-slate-800 mb-1">{activity.missionTitle || '활동 완료'}</p>
+                      <p className="text-xs font-medium text-slate-600 leading-relaxed break-keep">
+                        {activity.contentSummary || '상세 내용이 없습니다.'}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+
+        {/* 하단 응원 메시지 보내기 플로팅 버튼 */}
+        <div className="fixed bottom-0 w-full max-w-[480px] bg-white border-t border-slate-100 p-4 shadow-[0_-10px_20px_rgba(0,0,0,0.03)] z-40 pb-safe">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            disabled={seniorStatus.seniorId === 0}
+            className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-300 text-white font-bold py-4 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+          >
             <Mic className="w-6 h-6" /> 부모님께 응원 메시지 보내기
           </button>
         </div>
+
+        {/* 백엔드에서 세팅된 정확한 seniorId를 모달로 전달 */}
+        <CheerMessageModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          seniorId={seniorStatus.seniorId}
+        />
+
       </div>
     </div>
   );
