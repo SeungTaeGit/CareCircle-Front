@@ -51,13 +51,13 @@ export default function SeniorDetailModal({ senior, onClose }: Props) {
       const fetchDetails = async () => {
         try {
           // 1. 어르신 DB 상세 정보 (DTO 반영)
-          const detailRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors/detail/${senior.seniorId}`, {
+          const detailRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/seniors/detail/${senior.seniorId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (detailRes.ok) setDetailData(await detailRes.json());
 
           // 2. 5일 감정 추이 데이터
-          const emotionRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/dashboard/${senior.seniorId}/emotions`, {
+          const emotionRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/dashboard/${senior.seniorId}/emotions`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (emotionRes.ok) {

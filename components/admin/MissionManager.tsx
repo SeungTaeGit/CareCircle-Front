@@ -19,7 +19,7 @@ export default function MissionManager({ seniors }: MissionManagerProps) {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/missions`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/v1/admin/missions`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

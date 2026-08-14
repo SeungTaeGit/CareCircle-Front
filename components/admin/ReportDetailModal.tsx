@@ -28,7 +28,7 @@ export default function ReportDetailModal({ report, onClose, onSuccess }: Report
     setIsSavingEdit(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/reports/${report.reportId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/reports/${report.reportId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -59,7 +59,7 @@ export default function ReportDetailModal({ report, onClose, onSuccess }: Report
     setIsSending(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/reports/${report.reportId}/send`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/reports/${report.reportId}/send`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

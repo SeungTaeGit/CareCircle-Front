@@ -33,7 +33,7 @@ export default function ParticipantStatusTable({ onAddSeniorClick }: Props) {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/dashboard/seniors`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/dashboard/seniors`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

@@ -34,7 +34,7 @@ export default function SeniorMainPage() {
     setIsLoadingMissions(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/missions/today?seniorId=${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/v1/missions/today?seniorId=${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -58,7 +58,7 @@ export default function SeniorMainPage() {
   const fetchGarden = async (id: number) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/garden/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/garden/${id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -75,7 +75,7 @@ export default function SeniorMainPage() {
         const headers = { 'Authorization': `Bearer ${token}` };
 
         // 1. 프로필 조회
-        const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/seniors/me`, { headers });
+        const profileRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/seniors/me`, { headers });
         let currentId = 1;
         if (profileRes.ok) {
           const profileData = await profileRes.json();
@@ -85,12 +85,12 @@ export default function SeniorMainPage() {
         }
 
         // 2. 파트너 조회
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/seniors/partner`, { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/seniors/partner`, { headers })
           .then(res => res.ok ? res.json() : null)
           .then(data => setPartnerInfo(data));
 
         // 3. 펜팔 메시지 조회
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/received`, { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/exchange/received`, { headers })
           .then(res => res.ok ? res.json() : null)
           .then(messages => {
             if (messages) {
@@ -101,7 +101,7 @@ export default function SeniorMainPage() {
           });
 
         // 4. 가족 메시지 조회 및 디버깅 로직
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/messages/${currentId}`, { headers })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/messages/${currentId}`, { headers })
           .then(res => res.ok ? res.json() : null)
           .then(data => {
             console.log("💌 [디버그] 백엔드에서 넘어온 가족 메시지 원본 데이터:", data);

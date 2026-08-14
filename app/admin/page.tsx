@@ -46,28 +46,28 @@ export default function AdminDashboard() {
 
   const fetchSeniors = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors`, { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/seniors`, { headers: getAuthHeaders() });
       if (res.ok) setSeniors(await res.json());
     } catch (e) { console.error("어르신 목록 조회 실패", e); }
   };
 
   const fetchNotifications = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/notifications/unread`, { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/notifications/unread`, { headers: getAuthHeaders() });
       if (res.ok) setNotifications(await res.json());
     } catch (e) { console.error("알림 조회 실패", e); }
   };
 
   const fetchDangerSignals = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/signals`, { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/signals`, { headers: getAuthHeaders() });
       if (res.ok) setDangerSignals(await res.json());
     } catch (e) { console.error("위험 신호 조회 실패", e); }
   };
 
   const fetchSummary = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/dashboard/summary`, { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/dashboard/summary`, { headers: getAuthHeaders() });
       if (res.ok) setSummaryData(await res.json());
     } catch (e) { console.error("요약 정보 조회 실패", e); }
   };
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
   const openRecommendModal = async (seniorId: number) => {
     setSelectedSeniorId(seniorId);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors/${seniorId}/recommends`, { headers: getAuthHeaders() });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/seniors/${seniorId}/recommends`, { headers: getAuthHeaders() });
       if (res.ok) {
         setRecommendedPartners(await res.json());
         setIsRecommendModalOpen(true);
@@ -86,7 +86,7 @@ export default function AdminDashboard() {
   const confirmMatch = async (partnerId: number) => {
     if (!selectedSeniorId) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors/${selectedSeniorId}/match`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/seniors/${selectedSeniorId}/match`, {
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify({ partnerId: partnerId })
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
   const handleUnmatch = async (seniorId: number) => {
     if (!window.confirm('정말 매칭을 해제하시겠습니까?')) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/seniors/${seniorId}/unmatch`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/seniors/${seniorId}/unmatch`, {
         method: 'POST',
         headers: getAuthHeaders()
       });

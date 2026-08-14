@@ -92,7 +92,7 @@ export default function CheerMessageModal({ isOpen, onClose, seniorId }: CheerMe
       }
 
       // fetch 시 FormData를 body로 넘기면 브라우저가 자동으로 Content-Type과 Boundary를 설정함
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/messages/send/${seniorId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/messages/send/${seniorId}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData

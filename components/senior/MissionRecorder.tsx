@@ -80,7 +80,7 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
       const token = localStorage.getItem('accessToken');
       const targetId = mission.missionId || mission.id;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/missions/${targetId}/complete/text`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/v1/missions/${targetId}/complete/text`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ textResult: textInput.trim() })
@@ -119,7 +119,7 @@ export default function MissionRecorder({ mission, currentIndex, totalCount, isA
     try {
       const token = localStorage.getItem('accessToken');
       const targetId = mission?.missionId || mission?.id;
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/missions/${targetId}/skip`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/v1/missions/${targetId}/skip`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

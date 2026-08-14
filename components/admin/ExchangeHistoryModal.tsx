@@ -25,7 +25,7 @@ export default function ExchangeHistoryModal({ isOpen, onClose, senior }: Props)
       const fetchHistory = async () => {
         try {
           const token = localStorage.getItem('accessToken');
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/exchange/${senior.id}/history`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/exchange/${senior.id}/history`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
 

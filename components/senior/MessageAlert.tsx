@@ -15,6 +15,7 @@ interface ExchangeMessage {
 }
 
 interface PartnerProfile {
+  id?: number; // 💡 빌드 에러 해결을 위해 선택적 속성 추가
   partnerId: number;
   partnerName: string;
   country: string;
@@ -124,7 +125,6 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     setIsProcessing(false);
   };
 
-  // 💡 백엔드 가이드: 400 에러 및 유해 필터링 차단 시 백엔드 메시지 추출 처리
   const handleApiError = async (response: Response) => {
     try {
       const errData = await response.json();

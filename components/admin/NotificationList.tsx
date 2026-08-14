@@ -14,7 +14,7 @@ export default function NotificationList({ notifications, dangerSignals, refresh
   const handleResolveSignal = async (signalId: number) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`http://localhost:8080/api/admin/signals/${signalId}/resolve`, {
+      const res = await fetch(`https://api.carescircles.com/api/admin/signals/${signalId}/resolve`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -33,7 +33,7 @@ export default function NotificationList({ notifications, dangerSignals, refresh
   const handleReadNoti = async (notiId: number) => {
     try {
       const token = localStorage.getItem('accessToken');
-      const res = await fetch(`http://localhost:8080/api/admin/notifications/${notiId}/read`, {
+      const res = await fetch(`https://api.carescircles.com/api/admin/notifications/${notiId}/read`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` }
       });

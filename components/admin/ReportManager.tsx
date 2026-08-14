@@ -14,7 +14,7 @@ export default function ReportManager() {
     try {
       const token = localStorage.getItem('accessToken');
       // 백엔드 요청대로 ?status= 파라미터 활용
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/reports?status=${filter}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/reports?status=${filter}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {

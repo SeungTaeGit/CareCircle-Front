@@ -36,7 +36,7 @@ export default function GuardianDashboard() {
         }
 
         // 1. 대시보드 기본 정보 호출
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/activities/guardian`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/activities/guardian`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -59,7 +59,7 @@ export default function GuardianDashboard() {
 
           // 2. 💡 신규: 어르신 식별자(seniorId)가 있으면 5일 감정 추이 API 추가 호출
           if (currentSeniorId !== 0) {
-            fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/dashboard/${currentSeniorId}/emotions`, {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/dashboard/${currentSeniorId}/emotions`, {
               headers: { 'Authorization': `Bearer ${token}` }
             })
             .then(res => res.ok ? res.json() : null)

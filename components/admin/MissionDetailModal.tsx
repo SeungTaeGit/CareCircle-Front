@@ -54,7 +54,7 @@ export default function MissionDetailModal({ mission, seniorName, onClose }: Pro
       const fetchResult = async () => {
         try {
           const token = localStorage.getItem('accessToken');
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/admin/missions/${mission.id}/result`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/admin/missions/${mission.id}/result`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
 

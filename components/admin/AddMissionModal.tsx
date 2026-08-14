@@ -25,7 +25,7 @@ export default function AddMissionModal({ isOpen, onClose, seniors, onSuccess }:
     setIsLoading(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/v1/admin/missions`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/v1/admin/missions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
