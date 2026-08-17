@@ -134,15 +134,34 @@ export default function SeniorMainPage() {
     }; // 💡 여기서 initData 함수가 닫혀야 합니다.
 
     initData(); // 💡 위에서 선언한 함수를 실행합니다.
-  }, []); // 💡 여기서 useEffect가 닫혀야 합니다. (이전 코드에서 이 부분이 통째로 날아갔습니다 ㅠㅠ)
+  }, []); // 💡 여기서 useEffect가 닫혀야 합니다.
 
-  const handleMarkAsRead = (id: number) => {
-    // 펜팔 메시지 읽음 처리 로직 (생략됨, 필요 시 추가)
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      // 💡 백엔드 읽음 처리 API 연동 (PATCH /api/exchange/{messageId}/read)
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/exchange/${id}/read`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error("펜팔 메시지 읽음 처리 에러:", error);
+    }
   };
 
-  const handleFamilyMessageRead = (id: number) => {
+  // 💡 수정된 부분: async 키워드 추가
+  const handleFamilyMessageRead = async (id: number) => {
     setFamilyMessage(null);
-    // (선택) 백엔드에 읽음 처리 API가 있다면 여기서 호출하면 됩니다.
+    // 💡 (선택) 가족 메시지도 읽음 처리가 필요하다면 연동
+    try {
+      const token = localStorage.getItem('accessToken');
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/messages/${id}/read`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error("가족 메시지 읽음 처리 에러:", error);
+    }
   };
 
   return (

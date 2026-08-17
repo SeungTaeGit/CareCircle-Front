@@ -33,6 +33,7 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRead, setIsRead] = useState(false);
   const [replyMode, setReplyMode] = useState<'NONE' | 'VOICE' | 'TEXT' | 'IMAGE'>('NONE');
+  const [isSentSuccess, setIsSentSuccess] = useState(false); // 💡 추가: 전송 성공 상태 관리
 
   const [textReply, setTextReply] = useState('');
   const [isDictating, setIsDictating] = useState(false);
@@ -56,6 +57,10 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     setSelectedImage(null);
     setImagePreview(null);
     setAudioBlob(null);
+    // 💡 추가: 새로운 편지가 도착했을 때만 대기 화면을 초기화합니다.
+    if (message) {
+      setIsSentSuccess(false);
+    }
   }, [message]);
 
   useEffect(() => {
@@ -139,7 +144,7 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
     setIsProcessing(true);
     try {
       const token = localStorage.getItem('accessToken');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/text`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/exchange/text`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,6 +155,8 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
       });
       if (response.ok) {
         alert("답장이 전송되었습니다!");
+        setIsSentSuccess(true); // 💡 전송 성공 상태로 변경
+        setReplyMode('NONE');   // 💡 입력 폼 닫기
         onReplySent();
       } else {
         await handleApiError(response);
@@ -173,13 +180,15 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
 
       formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/image`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/exchange/image`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
       });
       if (response.ok) {
         alert("사진이 전송되었습니다!");
+        setIsSentSuccess(true); // 💡 전송 성공 상태로 변경
+        setReplyMode('NONE');   // 💡 입력 폼 닫기
         onReplySent();
       } else {
         await handleApiError(response);
@@ -233,7 +242,7 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
 
       formData.append('data', new Blob([JSON.stringify(requestData)], { type: 'application/json' }));
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/exchange/voice`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.carescircles.com'}/api/exchange/voice`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -241,6 +250,8 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
 
       if (response.ok) {
         alert("음성 편지가 전송되었습니다!");
+        setIsSentSuccess(true); // 💡 전송 성공 상태로 변경
+        setReplyMode('NONE');   // 💡 입력 폼 닫기
         onReplySent();
       } else {
         await handleApiError(response);
@@ -345,7 +356,14 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
               </div>
             </div>
 
-            {replyMode === 'NONE' && (
+            {/* 💡 수정된 부분: 전송 성공 시 대기 화면 노출, 아닐 때만 버튼 노출 */}
+            {isSentSuccess ? (
+              <div className="mt-5 bg-teal-50 rounded-2xl p-6 text-center border border-teal-200 animate-in fade-in zoom-in-95 duration-300">
+                <div className="text-4xl mb-3 animate-bounce">💌</div>
+                <p className="font-bold text-teal-800 text-lg mb-1">편지를 성공적으로 보냈어요!</p>
+                <p className="text-sm text-teal-600">친구의 답장을 두근두근 기다려봐요 ⏳</p>
+              </div>
+            ) : replyMode === 'NONE' && (
               <div className="mt-5">
                 <p className="text-center text-slate-600 font-bold mb-3 text-sm">먼저 인사를 건네볼까요?</p>
                 <div className="grid grid-cols-3 gap-3">
@@ -369,7 +387,8 @@ export default function MessageAlert({ message, partnerInfo, onRead, onReplySent
           <div className="text-center py-6 text-slate-400 font-medium">아직 매칭된 친구가 없습니다.</div>
         )}
 
-        {replyMode !== 'NONE' && renderInputForm('teal')}
+        {/* 💡 수정된 부분: 전송 성공 시 입력 폼 완벽히 숨기기 */}
+        {!isSentSuccess && replyMode !== 'NONE' && renderInputForm('teal')}
       </div>
     );
   }
